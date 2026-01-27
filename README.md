@@ -229,34 +229,34 @@ class PLCAdapterFactory {
 **해결책:**
 
 ```typescript
-// 레포지토리 인터페이스
-interface IUserRepository {
-    findById(id: number): Promise<User | null>
-    findByEmail(email: string): Promise<User | null>
-    create(userData: CreateUserDTO): Promise<User>
-    update(id: number, userData: UpdateUserDTO): Promise<User>
+// 레포지토리 인터페이스 (일반화된 엔티티 예시)
+interface IEntityRepository<T> {
+    findById(id: number): Promise<T | null>
+    findByField(field: string, value: any): Promise<T | null>
+    create(data: CreateDTO): Promise<T>
+    update(id: number, data: UpdateDTO): Promise<T>
     delete(id: number): Promise<void>
 }
 
 // Drizzle ORM 구현체
-class DrizzleUserRepository implements IUserRepository {
+class DrizzleEntityRepository implements IEntityRepository<Entity> {
     constructor(private db: DrizzleDB) {}
     
-    async findById(id: number): Promise<User | null> {
+    async findById(id: number): Promise<Entity | null> {
         const result = await this.db
             .select()
-            .from(users)
-            .where(eq(users.id, id))
+            .from(entities)
+            .where(eq(entities.id, id))
             .limit(1)
         
         return result[0] || null
     }
     
-    async findByEmail(email: string): Promise<User | null> {
+    async findByField(field: string, value: any): Promise<Entity | null> {
         const result = await this.db
             .select()
-            .from(users)
-            .where(eq(users.email, email))
+            .from(entities)
+            .where(eq(entities[field], value))
             .limit(1)
         
         return result[0] || null
@@ -266,24 +266,24 @@ class DrizzleUserRepository implements IUserRepository {
 }
 
 // 서비스 계층에서 사용
-class AuthService {
-    constructor(private userRepo: IUserRepository) {}
+class BusinessService {
+    constructor(private entityRepo: IEntityRepository) {}
     
-    async login(email: string, password: string) {
+    async authenticate(identifier: string, credential: string) {
         // 레포지토리를 통한 데이터 접근 (ORM 숨김)
-        const user = await this.userRepo.findByEmail(email)
+        const entity = await this.entityRepo.findByField('identifier', identifier)
         
-        if (!user) {
+        if (!entity) {
             throw new UnauthorizedException()
         }
         
-        const isValid = await this.verifyPassword(password, user.password)
+        const isValid = await this.verifyCredential(credential, entity.credential)
         
         if (!isValid) {
             throw new UnauthorizedException()
         }
         
-        return this.generateToken(user)
+        return this.generateToken(entity)
     }
 }
 ```
@@ -351,32 +351,32 @@ class KafkaService {
 
 // 의존성 주입
 @injectable()
-class CoolingRoadController {
+class BusinessController {
     constructor(
         @inject('MySQLService') private db: MySQLService,
         @inject('RedisService') private cache: RedisService,
         @inject('KafkaService') private messageQueue: KafkaService
     ) {}
     
-    async startWatering(siteId: number) {
+    async executeOperation(resourceId: number) {
         // 1. 캐시 확인
-        const cached = await this.cache.get(`site:${siteId}`)
+        const cached = await this.cache.get(`resource:${resourceId}`)
         if (cached) {
             return JSON.parse(cached)
         }
         
         // 2. DB 조회
-        const site = await this.db
+        const resource = await this.db
             .getConnection()
-            .query('SELECT * FROM sites WHERE id = ?', [siteId])
+            .query('SELECT * FROM resources WHERE id = ?', [resourceId])
         
-        // 3. Kafka로 PLC 제어 명령 전송
-        await this.messageQueue.send('plc.control', {
-            siteId,
-            command: 'START_WATERING'
+        // 3. Kafka로 이벤트 전송
+        await this.messageQueue.send('resource.operation', {
+            resourceId,
+            command: 'EXECUTE_OPERATION'
         })
         
-        return site
+        return resource
     }
 }
 
@@ -386,7 +386,7 @@ container.register('RedisService', { useClass: RedisService })
 container.register('KafkaService', { useClass: KafkaService })
 
 // 의존성 자동 주입
-const controller = container.resolve(CoolingRoadController)
+const controller = container.resolve(BusinessController)
 ```
 
 **결과:**
@@ -406,10 +406,10 @@ const controller = container.resolve(CoolingRoadController)
 ```typescript
 // 이벤트 타입 정의
 enum EventType {
-    WATERING_STARTED = 'watering.started',
-    WATERING_STOPPED = 'watering.stopped',
-    PLC_DATA_UPDATED = 'plc.data.updated',
-    WEATHER_DATA_RECEIVED = 'weather.data.received'
+    OPERATION_STARTED = 'operation.started',
+    OPERATION_STOPPED = 'operation.stopped',
+    DATA_UPDATED = 'data.updated',
+    EXTERNAL_DATA_RECEIVED = 'external.data.received'
 }
 
 // 이벤트 발행자 (Producer)
@@ -453,8 +453,8 @@ class EventSubscriber {
     }
 }
 
-// 사용 예시: 살수 시작 이벤트 처리
-class WateringService {
+// 사용 예시: 작업 시작 이벤트 처리
+class OperationService {
     constructor(
         private publisher: EventPublisher,
         private subscriber: EventSubscriber
@@ -463,33 +463,33 @@ class WateringService {
     }
     
     private setupEventHandlers() {
-        // AI 서비스가 살수 시작 이벤트 구독
+        // 작업 시작 이벤트 구독
         this.subscriber.subscribe(
-            EventType.WATERING_STARTED, 
+            EventType.OPERATION_STARTED, 
             async (payload) => {
-                await this.logWateringHistory(payload)
-                await this.captureBeforeImage(payload.siteId)
+                await this.logOperationHistory(payload)
+                await this.captureBeforeSnapshot(payload.resourceId)
             }
         )
         
-        // 살수 중지 이벤트 구독
+        // 작업 중지 이벤트 구독
         this.subscriber.subscribe(
-            EventType.WATERING_STOPPED,
+            EventType.OPERATION_STOPPED,
             async (payload) => {
-                await this.captureAfterImage(payload.siteId)
-                await this.calculateWaterUsage(payload)
+                await this.captureAfterSnapshot(payload.resourceId)
+                await this.calculateMetrics(payload)
             }
         )
     }
     
-    async startWatering(siteId: number) {
-        // PLC에 제어 명령 전송
-        await this.sendPLCCommand(siteId, 'START')
+    async startOperation(resourceId: number) {
+        // 제어 명령 전송
+        await this.sendControlCommand(resourceId, 'START')
         
         // 이벤트 발행 (비동기)
         await this.publisher.publish(
-            EventType.WATERING_STARTED,
-            { siteId, timestamp: new Date() }
+            EventType.OPERATION_STARTED,
+            { resourceId, timestamp: new Date() }
         )
     }
 }
@@ -498,13 +498,13 @@ class WateringService {
 **메시지 큐 토픽 설계:**
 
 ```
-plc.control          → PLC 제어 명령
-plc.data.updated     → PLC 데이터 업데이트
-watering.started     → 살수 시작
-watering.stopped     → 살수 중지
-weather.data.received → 날씨 데이터 수신
-websocket.broadcast  → WebSocket 브로드캐스트
-ai.decision          → AI 판단 결과
+device.control           → 장비 제어 명령
+device.data.updated      → 장비 데이터 업데이트
+operation.started        → 작업 시작
+operation.stopped        → 작업 중지
+external.data.received   → 외부 데이터 수신
+websocket.broadcast      → WebSocket 브로드캐스트
+ai.decision              → AI 판단 결과
 ```
 
 **결과:**
@@ -721,19 +721,19 @@ type User = typeof users.$inferSelect  // { id: number, email: string }
 
 ```typescript
 // MySQL: 트랜잭션이 중요한 데이터
-// - 사용자 정보
-// - 사이트 정보
-// - 살수 이력 (정규화된 데이터)
+// - 사용자/엔티티 정보
+// - 리소스 정보
+// - 작업 이력 (정규화된 데이터)
 
-const siteRepository = {
-    async createSite(data: SiteData) {
+const resourceRepository = {
+    async createResource(data: ResourceData) {
         return await db.transaction(async (tx) => {
-            const site = await tx.insert(sites).values(data)
-            await tx.insert(siteSettings).values({
-                siteId: site.id,
+            const resource = await tx.insert(resources).values(data)
+            await tx.insert(resourceSettings).values({
+                resourceId: resource.id,
                 ...defaultSettings
             })
-            return site
+            return resource
         })
     }
 }
@@ -761,18 +761,18 @@ const logger = {
 // - Rate Limiting 카운터
 
 const cache = {
-    async getSiteInfo(siteId: number) {
-        const key = `site:${siteId}`
+    async getResourceInfo(resourceId: number) {
+        const key = `resource:${resourceId}`
         const cached = await redis.get(key)
         
         if (cached) {
             return JSON.parse(cached)
         }
         
-        const site = await db.query('SELECT * FROM sites WHERE id = ?', [siteId])
-        await redis.setex(key, 3600, JSON.stringify(site))
+        const resource = await db.query('SELECT * FROM resources WHERE id = ?', [resourceId])
+        await redis.setex(key, 3600, JSON.stringify(resource))
         
-        return site
+        return resource
     }
 }
 ```
@@ -792,29 +792,29 @@ const cache = {
 
 ```typescript
 // ❌ N+1 문제 발생
-async function getSitesWithUsers() {
-    const sites = await db.select().from(sites)  // 1 query
+async function getResourcesWithRelations() {
+    const resources = await db.select().from(resources)  // 1 query
     
-    for (const site of sites) {
-        // N queries (사이트 개수만큼)
-        site.users = await db
+    for (const resource of resources) {
+        // N queries (리소스 개수만큼)
+        resource.relations = await db
             .select()
-            .from(users)
-            .where(eq(users.organizationId, site.organizationId))
+            .from(relations)
+            .where(eq(relations.parentId, resource.parentId))
     }
     
-    return sites
+    return resources
 }
 
 // ✅ JOIN으로 해결
-async function getSitesWithUsers() {
+async function getResourcesWithRelations() {
     return await db
         .select({
-            site: sites,
-            user: users
+            resource: resources,
+            relation: relations
         })
-        .from(sites)
-        .leftJoin(users, eq(sites.organizationId, users.organizationId))
+        .from(resources)
+        .leftJoin(relations, eq(resources.parentId, relations.parentId))
         // 1 query로 모든 데이터 조회
 }
 ```
@@ -823,28 +823,28 @@ async function getSitesWithUsers() {
 
 ```typescript
 // 복합 인덱스 설계
-const wateringHistory = mysqlTable('watering_history', {
+const operationHistory = mysqlTable('operation_history', {
     id: int('id').primaryKey(),
-    siteId: int('site_id'),
+    resourceId: int('resource_id'),
     startTime: datetime('start_time'),
     endTime: datetime('end_time')
 }, (table) => ({
     // 자주 함께 조회되는 컬럼에 복합 인덱스
-    siteTimeIdx: index('idx_site_time')
-        .on(table.siteId, table.startTime)
+    resourceTimeIdx: index('idx_resource_time')
+        .on(table.resourceId, table.startTime)
 }))
 
 // 쿼리 최적화
 const history = await db
     .select()
-    .from(wateringHistory)
+    .from(operationHistory)
     .where(
         and(
-            eq(wateringHistory.siteId, siteId),      // 인덱스 활용
-            gte(wateringHistory.startTime, startDate) // 인덱스 활용
+            eq(operationHistory.resourceId, resourceId),      // 인덱스 활용
+            gte(operationHistory.startTime, startDate) // 인덱스 활용
         )
     )
-    .orderBy(desc(wateringHistory.startTime))
+    .orderBy(desc(operationHistory.startTime))
 ```
 
 ### 2. 캐싱 전략
@@ -894,23 +894,23 @@ class CacheManager {
 
 ```typescript
 // 이벤트 기반 캐시 무효화
-class SiteService {
-    async updateSite(siteId: number, data: UpdateSiteDTO) {
-        await db.update(sites)
+class ResourceService {
+    async updateResource(resourceId: number, data: UpdateResourceDTO) {
+        await db.update(resources)
             .set(data)
-            .where(eq(sites.id, siteId))
+            .where(eq(resources.id, resourceId))
         
         // 관련 캐시 즉시 삭제
-        await cache.delete(`site:${siteId}`)
-        await cache.delete(`site:${siteId}:settings`)
-        await cache.delete(`organization:${data.organizationId}:sites`)
+        await cache.delete(`resource:${resourceId}`)
+        await cache.delete(`resource:${resourceId}:settings`)
+        await cache.delete(`parent:${data.parentId}:resources`)
         
         // Kafka로 캐시 무효화 이벤트 발행 (다른 서버들도 삭제)
         await kafka.send({
             topic: 'cache.invalidate',
             messages: [{
                 value: JSON.stringify({
-                    pattern: `site:${siteId}*`
+                    pattern: `resource:${resourceId}*`
                 })
             }]
         })
@@ -956,13 +956,13 @@ class WebSocketManager {
 }
 
 // 사용 예시
-wsManager.subscribe('user123', 'site:1:plc:data')  // 사이트 1만 구독
-wsManager.subscribe('user456', 'site:2:plc:data')  // 사이트 2만 구독
+wsManager.subscribe('user123', 'resource:1:data')  // 리소스 1만 구독
+wsManager.subscribe('user456', 'resource:2:data')  // 리소스 2만 구독
 
-// 사이트 1 데이터 업데이트 → user123에게만 전송
-wsManager.broadcast('site:1:plc:data', {
-    temperature: 25.5,
-    humidity: 60
+// 리소스 1 데이터 업데이트 → user123에게만 전송
+wsManager.broadcast('resource:1:data', {
+    metric1: 25.5,
+    metric2: 60
 })
 ```
 
