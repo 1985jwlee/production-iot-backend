@@ -348,19 +348,19 @@ Site 10 ┘
 
 ```typescript
 // ❌ 문제가 있는 코드
-async function captureAllSites(siteIds: number[]) {
-    // 모든 사이트의 이미지를 동시에 캡처
-    const promises = siteIds.map(siteId => 
-        captureImage(siteId)  // FFmpeg 프로세스 생성
+async function captureAllResources(resourceIds: number[]) {
+    // 모든 리소스의 이미지를 동시에 캡처
+    const promises = resourceIds.map(resourceId => 
+        captureImage(resourceId)  // FFmpeg 프로세스 생성
     )
     
     // 10개의 FFmpeg 프로세스가 동시에 실행
     return await Promise.all(promises)
 }
 
-async function captureImage(siteId: number) {
+async function captureImage(resourceId: number) {
     const ffmpeg = spawn('ffmpeg', [
-        '-i', rtspUrl,
+        '-i', streamUrl,
         '-frames:v', '1',
         '-f', 'image2pipe',
         'pipe:1'
@@ -428,11 +428,11 @@ class ImageCaptureService {
     // 최대 3개의 FFmpeg만 동시 실행
     private captureSemaphore = new Semaphore(3)
     
-    async captureAllSites(siteIds: number[]) {
-        const promises = siteIds.map(siteId =>
+    async captureAllResources(resourceIds: number[]) {
+        const promises = resourceIds.map(resourceId =>
             // Semaphore로 동시 실행 제한
             this.captureSemaphore.acquire(() => 
-                this.captureImage(siteId)
+                this.captureImage(resourceId)
             )
         )
         
@@ -505,11 +505,11 @@ async function processImage(buffer: Buffer) {
 
 ```typescript
 async function captureWithTimeout(
-    siteId: number,
+    resourceId: number,
     timeoutMs: number = 10000
 ): Promise<Buffer | null> {
     return await Promise.race([
-        captureImage(siteId),
+        captureImage(resourceId),
         new Promise<null>((resolve) => 
             setTimeout(() => resolve(null), timeoutMs)
         )
@@ -536,12 +536,12 @@ async function captureWithTimeout(
 **초기 개발:**
 ```typescript
 // ❌ PLC와 강하게 결합된 코드
-async function readPLCData(siteId: number) {
-    const plc = new ModbusRTU()
-    await plc.connectTCP('192.168.1.100', { port: 502 })
+async function readDeviceData(resourceId: number) {
+    const device = new ModbusRTU()
+    await device.connectTCP('192.168.1.100', { port: 502 })
     
-    const coils = await plc.readCoils(0, 24)
-    const registers = await plc.readHoldingRegisters(100, 10)
+    const coils = await device.readCoils(0, 24)
+    const registers = await device.readHoldingRegisters(100, 10)
     
     return { coils: coils.data, registers: registers.data }
 }
@@ -730,16 +730,16 @@ class PLCAdapterFactory {
 
 ```typescript
 // 단위 테스트
-describe('WateringController', () => {
-    it('should start watering', async () => {
-        // Mock PLC 어댑터 주입
-        const mockPLC = new FakePLCAdapter()
-        const controller = new WateringController(mockPLC)
+describe('OperationController', () => {
+    it('should start operation', async () => {
+        // Mock Device 어댑터 주입
+        const mockDevice = new FakeDeviceAdapter()
+        const controller = new OperationController(mockDevice)
         
-        await controller.startWatering(1)
+        await controller.startOperation(1)
         
-        const coils = await mockPLC.readCoils(0, 24)
-        expect(coils[0]).toBe(true)  // 살수 밸브 ON
+        const coils = await mockDevice.readCoils(0, 24)
+        expect(coils[0]).toBe(true)  // 제어 신호 ON
     })
 })
 ```
@@ -817,47 +817,47 @@ setInterval(async () => {
 **구현:**
 
 ```typescript
-// 1. PLC 데이터 수집 서비스
-class PLCDataCollector {
+// 1. 장비 데이터 수집 서비스
+class DeviceDataCollector {
     private producer: KafkaProducer
-    private plc: IPLCReader
+    private device: IDeviceReader
     
     async start() {
         // 5초마다 데이터 수집
         setInterval(async () => {
             try {
-                const data = await this.collectPLCData()
+                const data = await this.collectDeviceData()
                 
                 // Kafka로 발행
                 await this.producer.send({
-                    topic: 'plc.data',
+                    topic: 'device.data',
                     messages: [{
-                        key: data.siteId.toString(),
+                        key: data.resourceId.toString(),
                         value: JSON.stringify({
-                            siteId: data.siteId,
-                            temperature: data.temperature,
-                            humidity: data.humidity,
-                            pm10: data.pm10,
+                            resourceId: data.resourceId,
+                            metric1: data.metric1,
+                            metric2: data.metric2,
+                            metric3: data.metric3,
                             timestamp: new Date()
                         })
                     }]
                 })
             } catch (error) {
-                console.error('Failed to collect PLC data', error)
+                console.error('Failed to collect device data', error)
             }
         }, 5000)
     }
     
-    private async collectPLCData() {
-        const coils = await this.plc.readCoils(0, 24)
-        const registers = await this.plc.readHoldingRegisters(100, 10)
+    private async collectDeviceData() {
+        const coils = await this.device.readCoils(0, 24)
+        const registers = await this.device.readHoldingRegisters(100, 10)
         
         return {
-            siteId: 1,
-            temperature: registers[0] / 10,  // 0.1도 단위
-            humidity: registers[1],
-            pm10: registers[2],
-            valveStatus: coils[0]
+            resourceId: 1,
+            metric1: registers[0] / 10,  // 센서 데이터 1
+            metric2: registers[1],        // 센서 데이터 2
+            metric3: registers[2],        // 센서 데이터 3
+            status: coils[0]
         }
     }
 }
@@ -870,15 +870,15 @@ class WebSocketServer {
     
     async start() {
         // Kafka 구독
-        await this.consumer.subscribe({ topic: 'plc.data' })
+        await this.consumer.subscribe({ topic: 'device.data' })
         
         await this.consumer.run({
             eachMessage: async ({ message }) => {
                 const data = JSON.parse(message.value.toString())
                 
-                // 해당 사이트를 구독한 클라이언트에게만 전송
+                // 해당 리소스를 구독한 클라이언트에게만 전송
                 this.broadcastToSubscribers(
-                    `site:${data.siteId}:plc`,
+                    `resource:${data.resourceId}:device`,
                     data
                 )
             }
@@ -953,11 +953,11 @@ class WebSocketClient {
 const client = new WebSocketClient()
 client.connect('ws://localhost:8101/ws/v1')
 
-client.on('site:1:plc', (data) => {
-    console.log('PLC data received:', data)
+client.on('resource:1:device', (data) => {
+    console.log('Device data received:', data)
     // UI 업데이트
-    updateTemperature(data.temperature)
-    updateHumidity(data.humidity)
+    updateMetric1(data.metric1)
+    updateMetric2(data.metric2)
 })
 ```
 
