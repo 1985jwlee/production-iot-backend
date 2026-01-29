@@ -844,17 +844,13 @@ graph TB
     end
     
     USER --> READ
+    USER --> WRITE
+    USER --> CONTROL
+    USER --> LOGS
     MAINT --> READ
-    MAINT --> WRITE
-    MAINT --> CONTROL
-    MAINT --> LOGS
     DEV --> READ
     DEV --> WRITE
-    DEV --> CONTROL
     DEV --> LOGS
-    ADMIN --> READ
-    ADMIN --> WRITE
-    ADMIN --> CONTROL
     ADMIN --> MANAGE
     ADMIN --> LOGS
     
