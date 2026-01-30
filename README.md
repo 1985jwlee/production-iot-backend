@@ -13,6 +13,7 @@
 
 - [Executive Summary](#-executive-summary)
 - [시스템 아키텍처](#-시스템-아키텍처)
+- [AI 음성 인식(STT) MSA 확장](#-ai-음성-인식stt-msa-확장)
 - [핵심 설계 패턴](#-핵심-설계-패턴)
 - [기술적 의사결정](#-기술적-의사결정)
 - [성능 최적화](#-성능-최적화)
@@ -179,6 +180,87 @@ graph TB
 - ✅ 새로운 기능 추가 시 영향 범위 최소화
 
 ---
+## 🤖 AI 음성 인식(STT) MSA 확장
+
+### 1. 도입 배경
+현장 운용 및 유지보수 환경에서는 키보드·터치 기반 입력이 어려운 상황이 빈번히 발생합니다.
+이를 해결하기 위해 음성 기반 입력(STT, Speech-to-Text) 기능을 도입하였으며,
+본 시스템에서는 해당 기능을 Core Backend와 완전히 분리된 MSA로 설계하였습니다.
+
+분리 설계 이유:
+- AI 추론 부하로 인한 Core API 성능 저하 방지
+- AI 모델 교체/업그레이드 시 전체 시스템 재배포 방지
+- 장애 발생 시 핵심 제어 시스템으로의 전파 차단
+
+### 2. STT MSA의 역할 분담
+
+| 구성 요소             | 책임                        |
+| ----------------- | ------------------------- |
+| Core Backend      | STT 요청 이벤트 발행, 결과 수신 및 반영 |
+| Message Broker    | 서비스 간 비동기 이벤트 전달          |
+| STT Service (MSA) | 음성 데이터 처리 및 텍스트 변환        |
+
+### 3. STT 확장 아키텍처
+
+```mermaid
+graph TB
+    OP[Operator Voice Input]
+    API[Core Backend API]
+    EVT[Event Producer]
+    MQ[(Kafka)]
+    CON[STT Consumer]
+    AI[Speech-to-Text Engine]
+
+    OP --> API
+    API --> EVT
+    EVT --> MQ
+    MQ --> CON
+    CON --> AI
+    AI --> MQ
+    MQ --> API
+
+```
+
+### 4. STT 이벤트 흐름
+
+``` mermaid
+sequenceDiagram
+    participant Client
+    participant Backend
+    participant Kafka
+    participant STT
+
+    Client->>Backend: 음성 입력 요청
+    Backend->>Kafka: stt.requested
+    Kafka->>STT: 이벤트 전달
+    STT->>STT: 음성 → 텍스트 변환
+    STT->>Kafka: stt.completed
+    Kafka->>Backend: 결과 수신
+    Backend->>Client: 처리 결과 반영
+```
+
+### 5. 설계 효과
+
+- ✅ Core Backend의 안정성 유지
+- ✅ STT 서비스의 독립적 스케일링 가능
+- ✅ AI 기능 장애 시에도 제어/모니터링 무중단
+- ✅ 향후 NLP / 명령 해석 파이프라인 확장 용이
+
+### 6. AI 확장 로드맵
+
+```mermaid
+flowchart LR
+    STT[Speech-to-Text]
+    NLP[Intent Analysis]
+    CMD[Command Mapping]
+    CTRL[Device Control]
+
+    STT --> NLP
+    NLP --> CMD
+    CMD --> CTRL
+```
+---
+
 
 ## 🎨 핵심 설계 패턴
 
