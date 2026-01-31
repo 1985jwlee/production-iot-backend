@@ -1,58 +1,73 @@
 # 🌡️ Smart Road Watering System - Backend Architecture
 
-> **프로덕션 환경에서 검증된 IoT 백엔드 아키텍처**
-
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
 [![Bun](https://img.shields.io/badge/Bun-1.0+-orange.svg)](https://bun.sh/)
 [![Architecture](https://img.shields.io/badge/Architecture-Event--Driven-green.svg)]()
-[![Status](https://img.shields.io/badge/Status-Production-success.svg)]()
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+**도로 살수 시스템을 위한 고성능 IoT 백엔드 아키텍처**
+
+> 이 문서는 실무에서 설계하고 구현한 프로덕션 레벨 시스템의 아키텍처와 핵심 설계 패턴을 다룹니다.
 
 ---
 
 ## 📋 목차
 
-- [Executive Summary](#-executive-summary)
+- [프로젝트 개요](#-프로젝트-개요)
 - [시스템 아키텍처](#-시스템-아키텍처)
 - [핵심 설계 패턴](#-핵심-설계-패턴)
 - [기술적 의사결정](#-기술적-의사결정)
-- [성능 최적화](#-성능-최적화)
 - [보안 설계](#-보안-설계)
-- [운영 및 모니터링](#-운영-및-모니터링)
 
 ---
 
-## 🎯 Executive Summary
+## 🎯 프로젝트 개요
 
-### 프로젝트 개요
+### 비즈니스 문제
 
-도시 도로의 **표면 온도 상승**과 **미세먼지 문제**를 해결하기 위한 **지능형 도로 살수 시스템**의 백엔드 플랫폼입니다.
+도시의 도로 표면 온도 상승과 미세먼지 문제를 해결하기 위한 **지능형 도로 살수 시스템**이 필요했습니다.
 
-**비즈니스 요구사항:**
-- 10+ 지역의 PLC 장비를 통한 실시간 살수 제어
+**요구사항:**
+- PLC 장비를 통한 실시간 살수 제어
 - 기상 데이터 기반 자동 살수 판단
-- 실시간 모니터링 및 알림 시스템
+- 다중 사이트 관리 (10+ 지역)
+- 실시간 모니터링 및 알림
 - 99.9% 가용성 보장
 
-**증명하는 것:**
+### 기술적 챌린지
 
+```mermaid
+graph TB
+    subgraph "기술적 도전 과제"
+        C1[실시간성<br/>PLC 5초 간격<br/>데이터 동기화]
+        C2[확장성<br/>다중 사이트<br/>동시 제어]
+        C3[안정성<br/>네트워크 불안정<br/>환경 대응]
+        C4[보안<br/>산업용 IoT<br/>접근 제어]
+    end
+    
+    subgraph "설계 해결 방안"
+        S1[Event-Driven<br/>Architecture]
+        S2[Adapter Pattern<br/>PLC 추상화]
+        S3[WebSocket +<br/>Kafka]
+        S4[JWT + MFA<br/>RBAC]
+    end
+    
+    C1 --> S1
+    C2 --> S2
+    C3 --> S3
+    C4 --> S4
+    
+    style C1 fill:#ffebee,stroke:#d32f2f
+    style C2 fill:#ffebee,stroke:#d32f2f
+    style C3 fill:#ffebee,stroke:#d32f2f
+    style C4 fill:#ffebee,stroke:#d32f2f
+    style S1 fill:#e8f5e9,stroke:#4caf50,stroke-width:2px
+    style S2 fill:#e8f5e9,stroke:#4caf50,stroke-width:2px
+    style S3 fill:#e8f5e9,stroke:#4caf50,stroke-width:2px
+    style S4 fill:#e8f5e9,stroke:#4caf50,stroke-width:2px
 ```
-✓ 외부 장비 통신의 불안정성을 내부에서 격리하는 설계
-✓ PLC 장비 없이도 개발/테스트 가능한 구조 (Adapter Pattern)
-✓ WebSocket 연결 불안정 환경에서의 안정적 운영
-✓ 이미지 처리 병목을 Semaphore로 해결
-✓ 환경별 설정 관리 및 배포 자동화
-```
 
-### 핵심 성과
-
-| 지표 | 개선 전 | 개선 후 | 개선률 |
-|------|---------|---------|--------|
-| **콜드 스타트** | 1.2초 | 0.4초 | **70% ↓** |
-| **API 응답** | 평균 기준 | 평균 기준 | **20% ↑** |
-| **메모리 사용** | 기준치 | 기준치 | **30% ↓** |
-| **CPU 사용** | 100% | 35% | **65% ↓** |
-| **이미지 크기** | 2.5MB (JPEG) | 800KB (WebP) | **68% ↓** |
-| **WebSocket 연결 유지** | 5분 | 2시간+ | **24배 ↑** |
+> **Note**: 구현 과정의 기술적 챌린지와 성능 최적화 경험은 [TECHNICAL_CHALLENGES.md](TECHNICAL_CHALLENGES.md)에서 확인하실 수 있습니다.
 
 ---
 
@@ -72,9 +87,9 @@ graph TB
     end
     
     subgraph "Backend Cluster"
-        BE1[Backend #1<br/>Bun.js]
-        BE2[Backend #2<br/>Bun.js]
-        BE3[Backend #N<br/>Bun.js]
+        BE1[Backend #1<br/>Bun.js + ElysiaJS]
+        BE2[Backend #2<br/>Bun.js + ElysiaJS]
+        BE3[Backend #N<br/>Bun.js + ElysiaJS]
     end
     
     subgraph "Message Queue"
@@ -82,9 +97,9 @@ graph TB
     end
     
     subgraph "Data Layer"
-        MYSQL[(MySQL<br/>Master-Slave)]
-        MONGO[(MongoDB<br/>Replica Set)]
-        REDIS[(Redis<br/>Cache)]
+        MYSQL[(MySQL<br/>Master-Slave<br/>ACID 보장)]
+        MONGO[(MongoDB<br/>Replica Set<br/>로그 저장)]
+        REDIS[(Redis<br/>Cache<br/>Session)]
     end
     
     subgraph "Device Layer"
@@ -95,33 +110,30 @@ graph TB
     
     WEB --> NGINX
     MOBILE --> NGINX
+    
     NGINX --> BE1
     NGINX --> BE2
     NGINX --> BE3
     
-    BE1 --> KAFKA
-    BE2 --> KAFKA
-    BE3 --> KAFKA
+    BE1 <--> KAFKA
+    BE2 <--> KAFKA
+    BE3 <--> KAFKA
     
     BE1 --> MYSQL
     BE1 --> MONGO
     BE1 --> REDIS
     
-    KAFKA --> BE1
-    KAFKA --> BE2
-    KAFKA --> BE3
-    
-    BE1 <-->|Modbus TCP| PLC1
-    BE2 <-->|Modbus TCP| PLC2
-    BE3 <-->|Modbus TCP| PLCN
+    BE1 <-.->|Modbus TCP| PLC1
+    BE2 <-.->|Modbus TCP| PLC2
+    BE3 <-.->|Modbus TCP| PLCN
     
     style WEB fill:#e1f5ff,stroke:#2196f3
     style MOBILE fill:#e1f5ff,stroke:#2196f3
-    style NGINX fill:#fff4e1,stroke:#ff9800,stroke-width:3px
-    style BE1 fill:#e8f5e9,stroke:#4caf50,stroke-width:2px
-    style BE2 fill:#e8f5e9,stroke:#4caf50,stroke-width:2px
-    style BE3 fill:#e8f5e9,stroke:#4caf50,stroke-width:2px
-    style KAFKA fill:#f0e1ff,stroke:#9c27b0,stroke-width:2px
+    style NGINX fill:#fff9c4,stroke:#fbc02d,stroke-width:2px
+    style BE1 fill:#fff4e1,stroke:#ff9800
+    style BE2 fill:#fff4e1,stroke:#ff9800
+    style BE3 fill:#fff4e1,stroke:#ff9800
+    style KAFKA fill:#f0e1ff,stroke:#9c27b0,stroke-width:3px
     style MYSQL fill:#ffe1e1,stroke:#f44336
     style MONGO fill:#ffe1e1,stroke:#f44336
     style REDIS fill:#ffe1e1,stroke:#f44336
@@ -130,53 +142,90 @@ graph TB
     style PLCN fill:#ffebee,stroke:#d32f2f
 ```
 
-### 계층화된 아키텍처
+### 계층화된 구조 (Layered Architecture)
 
 ```mermaid
 graph TB
     subgraph "Presentation Layer"
-        API[API Endpoints<br/>ElysiaJS Routes]
+        API[API Endpoints<br/>REST / WebSocket]
     end
     
     subgraph "Business Logic Layer"
-        CTRL[Controllers]
-        SVC[Services]
+        CTRL[Controllers<br/>비즈니스 로직]
+        SVC[Services<br/>도메인 로직]
     end
     
     subgraph "Data Access Layer"
-        REPO[Repositories<br/>Drizzle ORM]
+        REPO[Repositories<br/>데이터 접근]
+        ORM[Drizzle ORM<br/>타입 안전]
     end
     
     subgraph "Infrastructure Layer"
-        DB[(Databases)]
-        CACHE[(Cache)]
-        MQ[Message Queue]
-        PLC[PLC Adapter]
+        DB[Databases<br/>MySQL/MongoDB/Redis]
+        MQ[Message Queue<br/>Kafka]
+        CACHE[Caching<br/>Redis]
     end
     
     API --> CTRL
     CTRL --> SVC
     SVC --> REPO
-    REPO --> DB
-    SVC --> CACHE
-    SVC --> MQ
-    SVC --> PLC
+    REPO --> ORM
+    ORM --> DB
+    
+    SVC -.-> MQ
+    SVC -.-> CACHE
     
     style API fill:#e1f5ff,stroke:#2196f3,stroke-width:2px
-    style CTRL fill:#fff4e1,stroke:#ff9800,stroke-width:2px
-    style SVC fill:#e8f5e9,stroke:#4caf50,stroke-width:2px
-    style REPO fill:#f3e5f5,stroke:#9c27b0,stroke-width:2px
+    style CTRL fill:#fff4e1,stroke:#ff9800
+    style SVC fill:#fff4e1,stroke:#ff9800
+    style REPO fill:#e8f5e9,stroke:#4caf50
+    style ORM fill:#e8f5e9,stroke:#4caf50
     style DB fill:#ffe1e1,stroke:#f44336
+    style MQ fill:#f0e1ff,stroke:#9c27b0
     style CACHE fill:#ffe1e1,stroke:#f44336
-    style MQ fill:#ffe1e1,stroke:#f44336
-    style PLC fill:#ffebee,stroke:#d32f2f
 ```
 
 **설계 이유:**
 - ✅ 각 계층의 독립적 변경 가능
 - ✅ 단위 테스트 용이성
 - ✅ 명확한 책임 분리
-- ✅ 새로운 기능 추가 시 영향 범위 최소화
+- ✅ 유지보수성 향상
+
+### 마이크로서비스 지향 아키텍처
+
+```mermaid
+graph LR
+    subgraph "Independent Modules"
+        AUTH[Auth Module<br/>인증/인가]
+        COOLING[Cooling Road<br/>살수 제어]
+        WS[WebSocket<br/>실시간 통신]
+        PLC_MOD[PLC Module<br/>장비 통신]
+        AI[AI Module<br/>자동 판단]
+    end
+    
+    subgraph "Event Bus"
+        KAFKA_BUS[Kafka Message Bus]
+    end
+    
+    AUTH --> KAFKA_BUS
+    COOLING --> KAFKA_BUS
+    WS --> KAFKA_BUS
+    PLC_MOD --> KAFKA_BUS
+    AI --> KAFKA_BUS
+    
+    KAFKA_BUS -.->|Subscribe| AUTH
+    KAFKA_BUS -.->|Subscribe| COOLING
+    KAFKA_BUS -.->|Subscribe| WS
+    KAFKA_BUS -.->|Subscribe| PLC_MOD
+    KAFKA_BUS -.->|Subscribe| AI
+    
+    style AUTH fill:#e1f5ff,stroke:#2196f3
+    style COOLING fill:#fff4e1,stroke:#ff9800
+    style WS fill:#e8f5e9,stroke:#4caf50
+    style PLC_MOD fill:#ffe1e1,stroke:#f44336
+    style AI fill:#f0e1ff,stroke:#9c27b0
+    style KAFKA_BUS fill:#fff9c4,stroke:#fbc02d,stroke-width:3px
+```
 
 ---
 
@@ -184,88 +233,101 @@ graph TB
 
 ### 1. Adapter Pattern - PLC 통신 추상화
 
-**문제 상황:**
-```
-❌ 개발 환경에 실제 PLC 장비가 없어 테스트 불가
-❌ 다양한 PLC 제조사별 프로토콜 차이
-❌ 프로덕션/개발 환경 분리 필요
-```
+**문제:** 
+- 개발 환경에 실제 PLC 장비가 없어 테스트 불가
+- 다양한 PLC 제조사별 프로토콜 차이
+- 프로덕션/개발 환경 분리 필요
 
-**해결 아키텍처:**
+**해결책:**
 
 ```mermaid
 graph TB
     subgraph "Application Layer"
-        APP[Business Logic]
+        BL[Business Logic<br/>장비 제어 로직]
     end
     
-    subgraph "Interface"
-        IFACE["IPLCReader / IPLCWriter<br/>(공통 인터페이스)"]
+    subgraph "Interface Layer"
+        IFACE["IPLCReader / IPLCWriter<br/>(추상화된 계약)"]
     end
     
-    subgraph "Adapters"
-        MODBUS[Modbus Adapter<br/>실제 PLC 통신]
-        FAKE[Fake Adapter<br/>시뮬레이션]
+    subgraph "Development Adapters"
+        FAKE[Fake PLC Adapter<br/>시뮬레이션 데이터<br/>네트워크 불필요]
+    end
+    
+    subgraph "Production Adapters"
+        MODBUS[Modbus Adapter<br/>실제 PLC 통신<br/>Modbus TCP]
         SIEMENS[Siemens Adapter<br/>S7 Protocol]
         MITSU[Mitsubishi Adapter<br/>MC Protocol]
     end
     
-    subgraph "Factory"
-        FACTORY[Adapter Factory<br/>환경별 선택]
+    subgraph "Factory Pattern"
+        FACTORY[PLC Adapter Factory<br/>환경별 자동 선택]
     end
     
-    APP --> IFACE
-    IFACE -.->|implements| MODBUS
+    BL --> IFACE
     IFACE -.->|implements| FAKE
+    IFACE -.->|implements| MODBUS
     IFACE -.->|implements| SIEMENS
     IFACE -.->|implements| MITSU
-    FACTORY -->|creates| MODBUS
-    FACTORY -->|creates| FAKE
-    FACTORY -->|creates| SIEMENS
-    FACTORY -->|creates| MITSU
     
-    style APP fill:#e1f5ff,stroke:#2196f3,stroke-width:2px
+    FACTORY -->|NODE_ENV=dev| FAKE
+    FACTORY -->|PLC_TYPE=MODBUS| MODBUS
+    FACTORY -->|PLC_TYPE=SIEMENS| SIEMENS
+    FACTORY -->|PLC_TYPE=MITSU| MITSU
+    
+    style BL fill:#e1f5ff,stroke:#2196f3,stroke-width:2px
     style IFACE fill:#fff9c4,stroke:#fbc02d,stroke-width:3px
+    style FAKE fill:#f3e5f5,stroke:#9c27b0,stroke-width:2px
     style MODBUS fill:#e8f5e9,stroke:#4caf50
-    style FAKE fill:#f3e5f5,stroke:#9c27b0
     style SIEMENS fill:#e8f5e9,stroke:#4caf50
     style MITSU fill:#e8f5e9,stroke:#4caf50
     style FACTORY fill:#fff4e1,stroke:#ff9800,stroke-width:2px
 ```
 
-**코드 예시:**
+**구현 예시:**
 
 ```typescript
-// 공통 인터페이스
+// 추상화 인터페이스
 interface IPLCReader {
     readCoils(address: number, count: number): Promise<boolean[]>
     readHoldingRegisters(address: number, count: number): Promise<number[]>
 }
 
-// 실제 PLC 어댑터
-class ModbusPLCAdapter implements IPLCReader {
+interface IPLCWriter {
+    writeCoils(address: number, data: boolean[]): Promise<void>
+    writeHoldingRegisters(address: number, data: number[]): Promise<void>
+}
+
+// 실제 PLC 구현
+class ModbusPLCAdapter implements IPLCReader, IPLCWriter {
     async readCoils(address: number, count: number): Promise<boolean[]> {
-        // Modbus TCP 프로토콜로 실제 통신
-        return await this.modbus.readCoils(address, count)
+        const result = await this.connection.readCoils(address, count)
+        return result.data
     }
 }
 
-// 개발용 가짜 어댑터
-class FakePLCAdapter implements IPLCReader {
+// 테스트용 가짜 PLC
+class FakePLCAdapter implements IPLCReader, IPLCWriter {
     async readCoils(address: number, count: number): Promise<boolean[]> {
-        // 시뮬레이션 데이터 반환
         return Array.from({ length: count }, () => Math.random() > 0.5)
     }
 }
 
-// 환경별 자동 선택
-const plc = PLCAdapterFactory.create({
-    type: process.env.PLC_TYPE // 'MODBUS' | 'FAKE'
-})
+// 팩토리 패턴
+class PLCAdapterFactory {
+    static create(config: PLCConfig): IPLCReader & IPLCWriter {
+        if (config.mode === 'PRODUCTION') {
+            return new ModbusPLCAdapter(config)
+        } else {
+            return new FakePLCAdapter()
+        }
+    }
+}
 ```
 
 **결과:**
-- ✅ PLC 없이 전체 시스템 개발/테스트 가능
+- ✅ 환경 변수 하나로 실제/가짜 PLC 전환
+- ✅ PLC 없이도 전체 시스템 개발/테스트 가능
 - ✅ 새로운 PLC 제조사 추가 시 새 어댑터만 구현
 - ✅ 단위 테스트 작성 가능
 
@@ -273,205 +335,142 @@ const plc = PLCAdapterFactory.create({
 
 ### 2. Repository Pattern - 데이터 접근 추상화
 
-**문제 상황:**
-```
-❌ ORM 의존성으로 인한 테스트 어려움
-❌ 비즈니스 로직에 SQL 쿼리 혼재
-❌ 데이터베이스 변경 시 전체 코드 수정 필요
-```
-
-**해결 아키텍처:**
-
 ```mermaid
 graph TB
-    subgraph "Business Layer"
-        SVC[Service Layer<br/>비즈니스 로직]
+    subgraph "Service Layer"
+        SVC[Business Service<br/>비즈니스 로직]
     end
     
     subgraph "Repository Interface"
-        IFACE[IRepository<br/>추상화된 계약]
+        IFACE[IRepository<br/>데이터 접근 계약]
     end
     
-    subgraph "Repository Implementation"
-        DRIZZLE[Drizzle Repository<br/>실제 DB 연동]
-        MOCK[Mock Repository<br/>테스트용]
+    subgraph "Implementations"
+        DRIZZLE[Drizzle Repository<br/>실제 ORM 구현]
+        MOCK[Mock Repository<br/>테스트용 구현]
     end
     
     subgraph "Database"
-        DB[(MySQL / MongoDB)]
+        DB[(MySQL<br/>실제 데이터)]
+        MEM[(In-Memory<br/>테스트 데이터)]
     end
     
     SVC --> IFACE
     IFACE -.->|implements| DRIZZLE
     IFACE -.->|implements| MOCK
+    
     DRIZZLE --> DB
+    MOCK --> MEM
     
     style SVC fill:#e1f5ff,stroke:#2196f3,stroke-width:2px
     style IFACE fill:#fff9c4,stroke:#fbc02d,stroke-width:3px
     style DRIZZLE fill:#e8f5e9,stroke:#4caf50
     style MOCK fill:#f3e5f5,stroke:#9c27b0
     style DB fill:#ffe1e1,stroke:#f44336
+    style MEM fill:#ffe1e1,stroke:#f44336
 ```
 
 **결과:**
-- ✅ 비즈니스 로직과 데이터 접근 계층 완전 분리
-- ✅ Mock Repository로 단위 테스트 가능
-- ✅ ORM 교체 시 Repository만 수정
+- ✅ 비즈니스 로직과 데이터 접근 계층 분리
+- ✅ Mock 레포지토리로 단위 테스트 가능
+- ✅ ORM 교체 시 레포지토리만 수정
 
 ---
 
 ### 3. Event-Driven Architecture - Kafka 메시지 큐
 
-**문제 상황:**
-```
-❌ 서비스 간 직접 통신으로 인한 강한 결합
-❌ 동기 통신으로 인한 성능 저하
-❌ 장애 전파 (한 서비스 장애가 전체 시스템 영향)
-```
-
-**해결 아키텍처:**
-
 ```mermaid
 graph LR
-    subgraph "Producers"
-        OP[Operation Service]
-        DEV[Device Service]
-        IMG[Image Service]
+    subgraph "Event Producers"
+        P1[Operation Service<br/>작업 이벤트]
+        P2[PLC Service<br/>장비 이벤트]
+        P3[External API<br/>외부 데이터]
     end
     
     subgraph "Kafka Topics"
-        T1[operation.started]
-        T2[device.data]
-        T3[image.captured]
+        T1[device.control<br/>장비 제어 명령]
+        T2[device.data.updated<br/>장비 데이터 업데이트]
+        T3[operation.started<br/>작업 시작]
+        T4[operation.stopped<br/>작업 중지]
+        T5[external.data.received<br/>외부 데이터 수신]
+        T6[websocket.broadcast<br/>실시간 브로드캐스트]
     end
     
-    subgraph "Consumers"
-        LOG[Logging Service]
-        NOTI[Notification Service]
-        ANAL[Analytics Service]
-        WS[WebSocket Service]
+    subgraph "Event Consumers"
+        C1[History Logger<br/>이력 기록]
+        C2[WebSocket Server<br/>실시간 전송]
+        C3[AI Service<br/>분석 및 판단]
+        C4[Notification<br/>알림 발송]
     end
     
-    OP -->|Publish| T1
-    DEV -->|Publish| T2
-    IMG -->|Publish| T3
+    P1 --> T3
+    P1 --> T4
+    P2 --> T1
+    P2 --> T2
+    P3 --> T5
     
-    T1 -->|Subscribe| LOG
-    T1 -->|Subscribe| NOTI
-    T2 -->|Subscribe| ANAL
-    T2 -->|Subscribe| WS
-    T3 -->|Subscribe| LOG
+    T3 --> C1
+    T3 --> C2
+    T4 --> C1
+    T4 --> C3
+    T2 --> C2
+    T5 --> C3
     
-    style OP fill:#e1f5ff,stroke:#2196f3
-    style DEV fill:#e1f5ff,stroke:#2196f3
-    style IMG fill:#e1f5ff,stroke:#2196f3
-    style T1 fill:#f0e1ff,stroke:#9c27b0,stroke-width:2px
-    style T2 fill:#f0e1ff,stroke:#9c27b0,stroke-width:2px
-    style T3 fill:#f0e1ff,stroke:#9c27b0,stroke-width:2px
-    style LOG fill:#e8f5e9,stroke:#4caf50
-    style NOTI fill:#e8f5e9,stroke:#4caf50
-    style ANAL fill:#e8f5e9,stroke:#4caf50
-    style WS fill:#e8f5e9,stroke:#4caf50
+    style P1 fill:#e1f5ff,stroke:#2196f3
+    style P2 fill:#fff4e1,stroke:#ff9800
+    style P3 fill:#e8f5e9,stroke:#4caf50
+    style T1 fill:#f0e1ff,stroke:#9c27b0
+    style T2 fill:#f0e1ff,stroke:#9c27b0
+    style T3 fill:#f0e1ff,stroke:#9c27b0
+    style T4 fill:#f0e1ff,stroke:#9c27b0
+    style T5 fill:#f0e1ff,stroke:#9c27b0
+    style T6 fill:#f0e1ff,stroke:#9c27b0
+    style C1 fill:#fff9c4,stroke:#fbc02d
+    style C2 fill:#fff9c4,stroke:#fbc02d
+    style C3 fill:#fff9c4,stroke:#fbc02d
+    style C4 fill:#fff9c4,stroke:#fbc02d
 ```
-
-**토픽 설계:**
-
-| 토픽 | 목적 | 주요 Consumer |
-|------|------|--------------|
-| `device.control` | 장비 제어 명령 | PLC Adapter |
-| `device.data.updated` | 장비 데이터 업데이트 | WebSocket, Analytics |
-| `operation.started` | 작업 시작 | Logging, Snapshot |
-| `operation.stopped` | 작업 중지 | Metrics, Notification |
-| `external.data.received` | 외부 데이터 수신 | AI Decision, Storage |
-| `websocket.broadcast` | WebSocket 브로드캐스트 | WebSocket Manager |
 
 **결과:**
 - ✅ 서비스 간 느슨한 결합
 - ✅ 비동기 처리로 응답 속도 향상
-- ✅ 새로운 구독자 추가 용이
 - ✅ 이벤트 재처리 가능 (장애 복구)
+- ✅ 새로운 구독자 추가 용이
 
 ---
 
 ### 4. Semaphore Pattern - 동시성 제어
 
-**문제 상황:**
-```
-❌ 10개 사이트에서 동시 CCTV 이미지 캡처 → CPU 100%
-❌ FFmpeg 프로세스 과다 생성 → 메모리 부족
-❌ 파일 I/O 경합 → 서버 응답 없음
-```
-
-**해결 아키텍처:**
-
 ```mermaid
 sequenceDiagram
-    participant C as Client Requests
-    participant S as Semaphore (limit=3)
-    participant F1 as FFmpeg #1
-    participant F2 as FFmpeg #2
-    participant F3 as FFmpeg #3
-    participant Q as Queue
+    participant R as Requests<br/>(10개 사이트)
+    participant S as Semaphore<br/>(permits=3)
+    participant F as FFmpeg Pool
+    participant Q as Wait Queue
     
-    Note over C: 10개 사이트 동시 요청
+    Note over R,Q: 초기 상태: 10개 요청 동시 도착
     
-    C->>S: Request 1
-    S->>F1: Execute
+    R->>S: Request 1-3
+    S->>F: Execute #1, #2, #3
     
-    C->>S: Request 2
-    S->>F2: Execute
+    R->>S: Request 4-10
+    S->>Q: Enqueue #4-10 (대기)
     
-    C->>S: Request 3
-    S->>F3: Execute
+    Note over F: FFmpeg 실행 중<br/>(최대 3개만)
     
-    C->>S: Request 4
-    S->>Q: Wait in Queue
+    Note over R,Q: 5초 후: Request #1 완료
     
-    C->>S: Request 5-10
-    S->>Q: Wait in Queue
+    F-->>S: Complete #1
+    S->>Q: Dequeue #4
+    S->>F: Execute #4
     
-    Note over F1: Complete
-    F1-->>S: Release
-    S->>Q: Dequeue Request 4
-    S->>F1: Execute Request 4
+    Note over S: 동시 실행 수 유지<br/>(항상 ≤ 3)
     
-    Note over S: 최대 3개만 동시 실행
-```
-
-**코드 예시:**
-
-```typescript
-class Semaphore {
-    private permits: number
-    private queue: Array<() => void> = []
-    
-    constructor(permits: number) {
-        this.permits = permits
-    }
-    
-    async acquire<T>(task: () => Promise<T>): Promise<T> {
-        await this.waitForPermit()
-        try {
-            return await task()
-        } finally {
-            this.release()
-        }
-    }
-}
-
-// 사용
-const captureSemaphore = new Semaphore(3)
-
-async function captureAllSites(siteIds: number[]) {
-    const promises = siteIds.map(id =>
-        captureSemaphore.acquire(() => captureImage(id))
-    )
-    return await Promise.all(promises)
-}
+    Note over R,Q: 순차적으로 처리<br/>CPU/메모리 안정화
 ```
 
 **결과:**
-- ✅ CPU 사용률: 100% → 35%
+- ✅ CPU 사용률 100% → 35%
 - ✅ 메모리 안정화 (OOM 에러 제거)
 - ✅ 응답 시간 예측 가능
 
@@ -479,463 +478,278 @@ async function captureAllSites(siteIds: number[]) {
 
 ## 💡 기술적 의사결정
 
-### 1. Bun.js 선택 이유
-
-**비교 분석:**
+### 1. Bun.js를 선택한 이유
 
 ```mermaid
 graph TB
-    subgraph "런타임 비교"
-        NODE[Node.js<br/>시작: 100ms<br/>빌드: 필요]
-        DENO[Deno<br/>시작: 80ms<br/>빌드: 불필요]
-        BUN[Bun.js<br/>시작: 30ms<br/>빌드: 불필요]
+    subgraph "Node.js"
+        N1[시작 시간: 느림]
+        N2[번들 크기: 큰 편]
+        N3[TS 지원: 별도 빌드]
+        N4[패키지: npm 느림]
     end
     
-    subgraph "성능 지표"
-        PERF1[콜드 스타트<br/>70% 개선]
-        PERF2[API 응답<br/>20% 개선]
-        PERF3[메모리<br/>30% 감소]
+    subgraph "Deno"
+        D1[시작 시간: 보통]
+        D2[번들 크기: 중간]
+        D3[TS 지원: 네이티브]
+        D4[패키지: 제한적]
     end
     
-    BUN --> PERF1
-    BUN --> PERF2
-    BUN --> PERF3
+    subgraph "Bun.js ✅"
+        B1[시작 시간: 빠름]
+        B2[번들 크기: 작음]
+        B3[TS 지원: 네이티브]
+        B4[패키지: npm 호환]
+        B5[개발 경험: 우수]
+    end
     
-    style NODE fill:#ffe1e1,stroke:#f44336
-    style DENO fill:#fff9c4,stroke:#fbc02d
-    style BUN fill:#e8f5e9,stroke:#4caf50,stroke-width:3px
-    style PERF1 fill:#e1f5ff,stroke:#2196f3
-    style PERF2 fill:#e1f5ff,stroke:#2196f3
-    style PERF3 fill:#e1f5ff,stroke:#2196f3
+    style N1 fill:#ffebee,stroke:#d32f2f
+    style N2 fill:#ffebee,stroke:#d32f2f
+    style N3 fill:#ffebee,stroke:#d32f2f
+    style N4 fill:#ffebee,stroke:#d32f2f
+    style D1 fill:#fff4e1,stroke:#ff9800
+    style D2 fill:#fff4e1,stroke:#ff9800
+    style D3 fill:#fff4e1,stroke:#ff9800
+    style D4 fill:#ffebee,stroke:#d32f2f
+    style B1 fill:#e8f5e9,stroke:#4caf50,stroke-width:2px
+    style B2 fill:#e8f5e9,stroke:#4caf50,stroke-width:2px
+    style B3 fill:#e8f5e9,stroke:#4caf50,stroke-width:2px
+    style B4 fill:#e8f5e9,stroke:#4caf50,stroke-width:2px
+    style B5 fill:#e8f5e9,stroke:#4caf50,stroke-width:2px
 ```
 
 **선택 이유:**
-- ✅ 타입스크립트 네이티브 지원 (빌드 불필요)
-- ✅ 3-5배 빠른 패키지 설치
-- ✅ npm 생태계 호환
-- ✅ 콜드 스타트 시간 대폭 개선
+- TypeScript 네이티브 지원으로 빌드 과정 불필요
+- npm 생태계 완전 호환
+- 빠른 개발 사이클 (Hot reload)
+- 경량화된 런타임
 
 ---
 
-### 2. ElysiaJS 선택 이유
-
-**Express vs ElysiaJS:**
-
-```typescript
-// Express (복잡)
-app.get('/api/sites/:id', async (req, res) => {
-    try {
-        const id = parseInt(req.params.id)
-        // 타입 검증 수동
-        const site = await db.query(...)
-        res.json({ success: true, data: site })
-    } catch (error) {
-        res.status(500).json({ error: error.message })
-    }
-})
-
-// ElysiaJS (간결)
-app.get('/api/sites/:id', async ({ params }) => {
-    const id = parseInt(params.id)
-    const site = await db.query(...)
-    return { success: true, data: site }
-}, {
-    params: t.Object({ id: t.String() })
-})
-```
-
-**장점:**
-- ✅ TypeBox 기반 런타임 타입 검증
-- ✅ OpenAPI 스펙 자동 생성
-- ✅ Express 대비 10배 빠른 라우팅
-- ✅ 보일러플레이트 코드 최소화
-
----
-
-### 3. Drizzle ORM 선택 이유
-
-**ORM 비교:**
+### 2. Polyglot Persistence 전략
 
 ```mermaid
 graph TB
-    subgraph "ORM 비교"
-        PRISMA[Prisma<br/>스키마 파일 별도<br/>번들 크기: 큼]
-        TYPEORM[TypeORM<br/>데코레이터 기반<br/>복잡한 쿼리 어려움]
-        DRIZZLE[Drizzle<br/>SQL-like TS<br/>경량, 타입 안전]
+    subgraph "MySQL - ACID 보장"
+        M1[사용자/계정 정보]
+        M2[리소스 정보]
+        M3[작업 이력<br/>정규화된 데이터]
+        M4[트랜잭션 필수]
     end
     
-    subgraph "선택 기준"
-        PERF[성능<br/>10배 작은 번들]
-        TYPE[타입 안전성<br/>컴파일 타임 검증]
-        SQL[SQL 친화적<br/>복잡한 쿼리 용이]
+    subgraph "MongoDB - 유연한 스키마"
+        MG1[시스템 로그]
+        MG2[에러 로그]
+        MG3[이벤트 히스토리]
+        MG4[비정형 데이터]
     end
     
-    DRIZZLE --> PERF
-    DRIZZLE --> TYPE
-    DRIZZLE --> SQL
-    
-    style PRISMA fill:#ffe1e1,stroke:#f44336
-    style TYPEORM fill:#fff9c4,stroke:#fbc02d
-    style DRIZZLE fill:#e8f5e9,stroke:#4caf50,stroke-width:3px
-    style PERF fill:#e1f5ff,stroke:#2196f3
-    style TYPE fill:#e1f5ff,stroke:#2196f3
-    style SQL fill:#e1f5ff,stroke:#2196f3
-```
-
-**선택 이유:**
-- ✅ Prisma 대비 10배 작은 번들 크기
-- ✅ SQL 친화적 (복잡한 쿼리 작성 용이)
-- ✅ 타입 자동 추론
-- ✅ Git-friendly SQL 마이그레이션
-
----
-
-### 4. Polyglot Persistence 전략
-
-**데이터 저장소별 역할:**
-
-```mermaid
-graph TB
-    subgraph "MySQL - 트랜잭션"
-        MYSQL_USE[사용자 정보<br/>리소스 정보<br/>작업 이력<br/>ACID 보장 필요]
-    end
-    
-    subgraph "MongoDB - 비정형 로그"
-        MONGO_USE[시스템 로그<br/>에러 로그<br/>이벤트 히스토리<br/>스키마 유연성]
-    end
-    
-    subgraph "Redis - 캐싱"
-        REDIS_USE[사용자 세션<br/>API 캐시<br/>Rate Limiting<br/>빠른 읽기]
+    subgraph "Redis - 빠른 읽기"
+        R1[사용자 세션]
+        R2[API 응답 캐시]
+        R3[Rate Limiting]
+        R4[실시간 카운터]
     end
     
     APP[Application]
     
-    APP --> MYSQL_USE
-    APP --> MONGO_USE
-    APP --> REDIS_USE
+    APP -->|CRUD| M1
+    APP -->|CRUD| M2
+    APP -->|Transaction| M3
+    APP -->|Logging| MG1
+    APP -->|Logging| MG2
+    APP -->|Cache| R1
+    APP -->|Cache| R2
     
-    style MYSQL_USE fill:#e1f5ff,stroke:#2196f3,stroke-width:2px
-    style MONGO_USE fill:#e8f5e9,stroke:#4caf50,stroke-width:2px
-    style REDIS_USE fill:#fff4e1,stroke:#ff9800,stroke-width:2px
-    style APP fill:#f0e1ff,stroke:#9c27b0,stroke-width:2px
+    style M1 fill:#ffe1e1,stroke:#f44336
+    style M2 fill:#ffe1e1,stroke:#f44336
+    style M3 fill:#ffe1e1,stroke:#f44336
+    style M4 fill:#ffe1e1,stroke:#f44336
+    style MG1 fill:#e8f5e9,stroke:#4caf50
+    style MG2 fill:#e8f5e9,stroke:#4caf50
+    style MG3 fill:#e8f5e9,stroke:#4caf50
+    style MG4 fill:#e8f5e9,stroke:#4caf50
+    style R1 fill:#e1f5ff,stroke:#2196f3
+    style R2 fill:#e1f5ff,stroke:#2196f3
+    style R3 fill:#e1f5ff,stroke:#2196f3
+    style R4 fill:#e1f5ff,stroke:#2196f3
+    style APP fill:#f0e1ff,stroke:#9c27b0,stroke-width:3px
 ```
-
-**분산 데이터 관리 원칙:**
-- MySQL: ACID 보장이 필요한 핵심 데이터
-- MongoDB: 스키마 유연성이 필요한 로그
-- Redis: 빠른 읽기가 필요한 캐시
-
----
-
-## ⚡ 성능 최적화
-
-### 1. 데이터베이스 쿼리 최적화
-
-**N+1 문제 해결:**
-
-```mermaid
-sequenceDiagram
-    participant C as Client
-    participant A as API
-    participant D as Database
-    
-    Note over C,D: ❌ Before (N+1 Problem)
-    C->>A: GET /resources
-    A->>D: SELECT * FROM resources
-    D-->>A: 100 resources
-    loop For each resource
-        A->>D: SELECT * FROM relations WHERE parent_id=?
-    end
-    Note over A: 1 + 100 = 101 queries!
-    
-    Note over C,D: ✅ After (JOIN)
-    C->>A: GET /resources
-    A->>D: SELECT * FROM resources<br/>LEFT JOIN relations
-    D-->>A: All data
-    Note over A: 1 query only!
-```
-
-**인덱스 전략:**
-
-```typescript
-// 복합 인덱스 설계
-const operationHistory = mysqlTable('operation_history', {
-    id: int('id').primaryKey(),
-    resourceId: int('resource_id'),
-    startTime: datetime('start_time'),
-    endTime: datetime('end_time')
-}, (table) => ({
-    // 자주 함께 조회되는 컬럼에 복합 인덱스
-    resourceTimeIdx: index('idx_resource_time')
-        .on(table.resourceId, table.startTime)
-}))
-```
-
----
-
-### 2. 다층 캐싱 전략
-
-```mermaid
-graph TB
-    REQ[API Request]
-    L1[L1: Memory Cache<br/>TTL: 1분<br/>가장 빠름]
-    L2[L2: Redis Cache<br/>TTL: 1시간<br/>빠름]
-    L3[L3: Database<br/>영구 저장<br/>느림]
-    
-    REQ --> L1
-    L1 -->|Miss| L2
-    L2 -->|Miss| L3
-    L1 -.->|Hit| RES[Response]
-    L2 -.->|Hit & Store L1| RES
-    L3 -.->|Hit & Store L1+L2| RES
-    
-    style REQ fill:#e1f5ff,stroke:#2196f3
-    style L1 fill:#e8f5e9,stroke:#4caf50,stroke-width:3px
-    style L2 fill:#fff4e1,stroke:#ff9800,stroke-width:2px
-    style L3 fill:#ffe1e1,stroke:#f44336
-    style RES fill:#f3e5f5,stroke:#9c27b0
-```
-
-**Cache Invalidation:**
-
-```typescript
-async function updateResource(id: number, data: any) {
-    await db.update(resources).set(data)
-    
-    // 관련 캐시 즉시 삭제
-    await cache.delete(`resource:${id}`)
-    await cache.delete(`resource:${id}:settings`)
-    
-    // Kafka로 캐시 무효화 이벤트 발행
-    await kafka.send({
-        topic: 'cache.invalidate',
-        messages: [{ value: JSON.stringify({ pattern: `resource:${id}*` }) }]
-    })
-}
-```
-
----
-
-### 3. WebSocket 최적화
-
-**Selective Broadcasting:**
-
-```mermaid
-graph LR
-    subgraph "Topics"
-        T1[resource:1:data]
-        T2[resource:2:data]
-        T3[resource:3:data]
-    end
-    
-    subgraph "Subscribers"
-        U1[User 1<br/>구독: 1]
-        U2[User 2<br/>구독: 2]
-        U3[User 3<br/>구독: 1,3]
-    end
-    
-    T1 -.->|broadcast| U1
-    T1 -.->|broadcast| U3
-    T2 -.->|broadcast| U2
-    T3 -.->|broadcast| U3
-    
-    style T1 fill:#e1f5ff,stroke:#2196f3
-    style T2 fill:#e8f5e9,stroke:#4caf50
-    style T3 fill:#fff4e1,stroke:#ff9800
-    style U1 fill:#f3e5f5,stroke:#9c27b0
-    style U2 fill:#f3e5f5,stroke:#9c27b0
-    style U3 fill:#f3e5f5,stroke:#9c27b0
-```
-
-**결과:**
-- ✅ 불필요한 전송 제거
-- ✅ 네트워크 대역폭 절약
-- ✅ 클라이언트 부하 감소
 
 ---
 
 ## 🔐 보안 설계
 
-### 인증 시스템 (JWT + MFA)
+### 1. JWT + MFA 인증
 
 ```mermaid
 sequenceDiagram
     participant C as Client
     participant A as Auth Service
-    participant M as MFA Service
+    participant MFA as MFA Service
     participant DB as Database
+    
+    Note over C,DB: 1단계: 기본 인증
     
     C->>A: Login (email, password)
     A->>DB: Verify credentials
     DB-->>A: User data
     
-    alt MFA Enabled
-        A->>M: Request MFA verification
-        M-->>C: Send OTP code
-        C->>M: Submit OTP code
-        M->>M: Verify TOTP (±30sec window)
-        M-->>A: Verification result
+    Note over A: Password 검증 성공
+    
+    A->>C: MFA Challenge
+    
+    Note over C,MFA: 2단계: MFA 인증
+    
+    C->>MFA: TOTP Token
+    MFA->>MFA: Verify TOTP<br/>(±30초 허용)
+    
+    alt MFA Success
+        MFA-->>A: Verified
+        A->>A: Generate JWT<br/>(24시간 유효)
+        A-->>C: Access Token + Refresh Token
+    else MFA Failed
+        MFA-->>C: 401 Unauthorized
+    end
+```
+
+---
+
+### 2. Rate Limiting
+
+```mermaid
+graph TB
+    REQUEST[Client Request]
+    
+    subgraph "Rate Limiter"
+        EXTRACT[Extract IP/User ID]
+        CHECK[Redis Counter<br/>Check]
+        DECISION{Allowed?}
     end
     
-    A->>A: Generate JWT token
-    A-->>C: Access token + Refresh token
+    subgraph "Redis"
+        COUNTER[Request Counter<br/>Key: ratelimit:IP:timestamp<br/>TTL: 1분]
+    end
     
-    Note over C,A: Subsequent requests
-    C->>A: API request + JWT
-    A->>A: Verify JWT signature
-    A->>A: Check expiration
-    A-->>C: Response
-```
-
-**JWT 토큰 구조:**
-
-```typescript
-interface JWTPayload {
-    userId: number
-    email: string
-    role: UserRole
-    organizationId: number
-    iat: number  // Issued At
-    exp: number  // Expiration (24시간)
-}
-```
-
----
-
-### Rate Limiting
-
-```mermaid
-graph TB
-    REQ[API Request]
-    RL[Rate Limiter<br/>100 req/min]
-    REDIS[(Redis<br/>Counter)]
+    subgraph "Response"
+        ALLOW[200 OK<br/>X-RateLimit-Remaining: N]
+        DENY[429 Too Many Requests<br/>X-RateLimit-Reset: timestamp]
+    end
     
-    REQ --> RL
-    RL --> REDIS
-    REDIS -.->|Under limit| ALLOW[✅ Allow]
-    REDIS -.->|Over limit| DENY[❌ 429 Too Many Requests]
+    REQUEST --> EXTRACT
+    EXTRACT --> CHECK
+    CHECK <--> COUNTER
+    CHECK --> DECISION
     
-    style REQ fill:#e1f5ff,stroke:#2196f3
-    style RL fill:#fff4e1,stroke:#ff9800,stroke-width:2px
-    style REDIS fill:#ffe1e1,stroke:#f44336
-    style ALLOW fill:#e8f5e9,stroke:#4caf50
-    style DENY fill:#ffebee,stroke:#d32f2f
+    DECISION -->|≤100 requests| ALLOW
+    DECISION -->|>100 requests| DENY
+    
+    COUNTER -.->|Increment| COUNTER
+    
+    style REQUEST fill:#e1f5ff,stroke:#2196f3
+    style EXTRACT fill:#fff4e1,stroke:#ff9800
+    style CHECK fill:#fff4e1,stroke:#ff9800
+    style DECISION fill:#fff9c4,stroke:#fbc02d,stroke-width:2px
+    style COUNTER fill:#ffe1e1,stroke:#f44336
+    style ALLOW fill:#e8f5e9,stroke:#4caf50,stroke-width:2px
+    style DENY fill:#ffebee,stroke:#d32f2f,stroke-width:2px
 ```
 
 ---
 
-### 역할 기반 접근 제어 (RBAC)
+### 3. RBAC (Role-Based Access Control)
 
 ```mermaid
 graph TB
-    subgraph "Roles"
+    subgraph "User Roles"
         USER[USER<br/>일반 사용자]
-        MAINT[MAINTENANCE<br/>유지보수]
+        MAINT[MAINTENANCE<br/>유지보수 담당자]
         DEV[DEVELOPER<br/>개발자]
-        ADMIN[ORGANIZE<br/>관리자]
+        ORG[ORGANIZE<br/>조직 관리자]
     end
     
     subgraph "Permissions"
-        READ[사이트 조회]
-        WRITE[사이트 수정]
-        CONTROL[PLC 제어]
-        MANAGE[사용자 관리]
-        LOGS[로그 조회]
+        P1[site:read<br/>사이트 조회]
+        P2[site:write<br/>사이트 수정]
+        P3[plc:control<br/>PLC 제어]
+        P4[users:manage<br/>사용자 관리]
+        P5[logs:view<br/>로그 조회]
     end
     
-    USER --> READ
-    USER --> WRITE
-    USER --> CONTROL
-    USER --> LOGS
-    MAINT --> READ
-    DEV --> READ
-    DEV --> WRITE
-    DEV --> LOGS
-    ADMIN --> MANAGE
-    ADMIN --> LOGS
+    USER --> P1
+    
+    MAINT --> P1
+    MAINT --> P2
+    MAINT --> P3
+    MAINT --> P5
+    
+    DEV --> P1
+    DEV --> P2
+    DEV --> P3
+    DEV --> P5
+    
+    ORG --> P1
+    ORG --> P2
+    ORG --> P3
+    ORG --> P4
+    ORG --> P5
     
     style USER fill:#e1f5ff,stroke:#2196f3
     style MAINT fill:#fff4e1,stroke:#ff9800
     style DEV fill:#e8f5e9,stroke:#4caf50
-    style ADMIN fill:#f0e1ff,stroke:#9c27b0,stroke-width:3px
+    style ORG fill:#f0e1ff,stroke:#9c27b0,stroke-width:2px
+    style P1 fill:#fff9c4,stroke:#fbc02d
+    style P2 fill:#fff9c4,stroke:#fbc02d
+    style P3 fill:#ffe1e1,stroke:#f44336
+    style P4 fill:#ffe1e1,stroke:#f44336
+    style P5 fill:#fff9c4,stroke:#fbc02d
 ```
 
 ---
 
-## 📊 운영 및 모니터링
+## 📚 관련 포트폴리오
 
-### Structured Logging
+이 설계 원칙은 다른 도메인에도 적용 가능합니다:
 
-```mermaid
-graph LR
-    APP[Application]
-    LOG[Logger]
-    DEV[Console<br/>개발 환경]
-    PROD[MongoDB<br/>프로덕션]
-    
-    APP --> LOG
-    LOG -->|IS_DEVELOPMENT| DEV
-    LOG -->|IS_PRODUCTION| PROD
-    
-    style APP fill:#e1f5ff,stroke:#2196f3
-    style LOG fill:#fff4e1,stroke:#ff9800,stroke-width:2px
-    style DEV fill:#f3e5f5,stroke:#9c27b0
-    style PROD fill:#ffe1e1,stroke:#f44336
-```
+### 🎨 [Main Game Architecture](https://github.com/1985jwlee/portpolio_main)
 
-**로그 구조:**
+**동일한 원칙의 게임 도메인 적용**
 
-```typescript
-interface LogEntry {
-    level: 'debug' | 'info' | 'warn' | 'error'
-    message: string
-    timestamp: Date
-    service: string
-    userId?: number
-    requestId?: string
-    metadata?: Record<string, any>
-    error?: {
-        message: string
-        stack: string
-        code?: string
-    }
-}
-```
+| 원칙 | IoT Backend | Game Server |
+|------|------------|-------------|
+| **외부 격리** | PLC 장애 시 서비스 유지 | DB 장애 시 게임 진행 |
+| **이벤트 기반** | Kafka Event Stream | Kafka Event Stream |
+| **계약 안정성** | API 스키마 불변 | 운영 API 불변 |
+| **비동기 처리** | WebSocket + Kafka | Command → Event |
+
+### 📊 [Coin Data API](https://github.com/1985jwlee/portpolio_coindataapi)
+
+**외부 API 격리 패턴**
+
+| 원칙 | IoT Backend | Coin API |
+|------|------------|----------|
+| **외부 격리** | PLC 프로토콜 추상화 | 거래소 API 추상화 |
+| **정규화** | Modbus → Internal Schema | External API → Internal Schema |
+| **캐싱** | Redis Multi-tier | In-Memory Cache |
+
+> **핵심 메시지**: "설계 원칙은 도메인을 넘어 일반화 가능합니다"
 
 ---
 
-## 🛠️ 기술 스택
+## 📧 Contact
 
-### Backend
-![Bun](https://img.shields.io/badge/Bun-000000?style=flat-square&logo=bun&logoColor=white)
-![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)
-![ElysiaJS](https://img.shields.io/badge/ElysiaJS-000000?style=flat-square)
-
-### Database & Cache
-![MySQL](https://img.shields.io/badge/MySQL-4479A1?style=flat-square&logo=mysql&logoColor=white)
-![MongoDB](https://img.shields.io/badge/MongoDB-47A248?style=flat-square&logo=mongodb&logoColor=white)
-![Redis](https://img.shields.io/badge/Redis-DC382D?style=flat-square&logo=redis&logoColor=white)
-
-### Message Queue
-![Kafka](https://img.shields.io/badge/Kafka-231F20?style=flat-square&logo=apache-kafka&logoColor=white)
-
-### ORM
-![Drizzle](https://img.shields.io/badge/Drizzle_ORM-000000?style=flat-square)
-
----
-
-## 📚 상세 문서
-
-- 🔧 [Technical Challenges & Solutions](./TECHNICAL_CHALLENGES.md) - 기술적 챌린지 해결 과정
+**GitHub**: [@1985jwlee](https://github.com/1985jwlee)  
+**Email**: leejae.w.jl@icloud.com
 
 ---
 
 ## 📝 License
 
-MIT License
+이 문서는 설계 포트폴리오로, 학습 및 평가 목적으로 공개되었습니다.
 
 ---
 
 **Last Updated**: 2025-01-30
 
-> "The best architecture is the one that can explain itself to new team members."
+**Note**: 이 프로젝트는 실무 프로덕션 시스템의 아키텍처와 설계 판단력을 증명하기 위한 자료입니다.
