@@ -353,11 +353,12 @@ flowchart LR
 |문서                                              |내용                  |대상        |
 |------------------------------------------------|--------------------|----------|
 |[설계 결정 과정](docs/design-decisions-portfolio.md) ⭐|왜 이렇게 설계했는가         |테크 리드, CTO|
+|[기술 챌린지](docs/TECHNICAL_CHALLENGES.md) ⭐        |문제 → 원인 → 해결 과정     |테크 리드, CTO|
 |[아키텍처](docs/ARCHITECTURE.md)                    |전체 시스템 구조           |백엔드 엔지니어  |
 |[배포 가이드](docs/DEPLOYMENT.md)                    |Docker + Nginx + SSL|DevOps    |
-|[API 계약](docs/API_CONTRACT.md)                  |전체 엔드포인트            |프론트엔드 개발자 |
+|[API 계약](docs/API_CONTRACT.md)                  |API 그룹 구성 + 에러 코드 체계|프론트엔드 개발자 |
 |[WebSocket 가이드](docs/WEBSOCKET_GUIDE.md)        |WebSocket 통합        |프론트엔드 개발자 |
-|[CHANGELOG](CHANGELOG.md)                       |버전별 변경 이력           |팀 전체      |
+|[코드 개선 이력](CHANGELOG.md)                        |리팩터링 흐름 (테마별)       |백엔드 엔지니어  |
 
 -----
 
