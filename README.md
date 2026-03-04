@@ -1,755 +1,525 @@
-# 🌡️ Smart Road Watering System - Backend Architecture
+# 🌡️ Production IoT Backend — 쿨링로드 시스템
 
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
-[![Bun](https://img.shields.io/badge/Bun-1.0+-orange.svg)](https://bun.sh/)
-[![Architecture](https://img.shields.io/badge/Architecture-Event--Driven-green.svg)]()
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+> **실제 도로 살수 장비를 제어하는 프로덕션 백엔드 — 설계 판단부터 배포까지**
 
-**도로 살수 시스템을 위한 고성능 IoT 백엔드 아키텍처**
-
-> 이 문서는 실무에서 설계하고 구현한 프로덕션 레벨 시스템의 아키텍처와 핵심 설계 패턴을 다룹니다.
+[![Version](https://img.shields.io/badge/Version-3.8.0-blue)](CHANGELOG.md)
+[![Status](https://img.shields.io/badge/Status-Production%20Ready-green)]()
+[![Framework](https://img.shields.io/badge/Framework-Bun.js%20%2B%20ElysiaJS-orange)]()
 
 ---
 
 ## 📋 목차
 
-- [프로젝트 개요](#-프로젝트-개요)
-- [시스템 아키텍처](#-시스템-아키텍처)
-- [핵심 설계 패턴](#-핵심-설계-패턴)
-- [기술적 의사결정](#-기술적-의사결정)
-- [보안 설계](#-보안-설계)
+1. [Portfolio Summary](#-portfolio-summary)
+2. [3가지 핵심 설계 결정](#-3가지-핵심-설계-결정)
+3. [의도적으로 하지 않은 것들](#-의도적으로-하지-않은-것들)
+4. [시스템 아키텍처](#-시스템-아키텍처)
+5. [보안 설계](#-보안-설계)
+6. [운영 안정성](#-운영-안정성)
+7. [코드 리뷰 이력](#-코드-리뷰-이력)
+8. [기술 스택](#️-기술-스택)
+9. [상세 문서](#-상세-문서)
+10. [한 줄 요약](#-한-줄-요약)
 
 ---
 
-## 🎯 프로젝트 개요
+## 📌 Portfolio Summary
 
-### 비즈니스 문제
+**이 포트폴리오가 증명하는 것:**
 
-도시의 도로 표면 온도 상승과 미세먼지 문제를 해결하기 위한 **지능형 도로 살수 시스템**이 필요했습니다.
-
-**요구사항:**
-- PLC 장비를 통한 실시간 살수 제어
-- 기상 데이터 기반 자동 살수 판단
-- 다중 사이트 관리 (10+ 지역)
-- 실시간 모니터링 및 알림
-- 99.9% 가용성 보장
-
-### 기술적 챌린지
-
-```mermaid
-graph TB
-    subgraph "기술적 도전 과제"
-        C1[실시간성<br/>PLC 5초 간격<br/>데이터 동기화]
-        C2[확장성<br/>다중 사이트<br/>동시 제어]
-        C3[안정성<br/>네트워크 불안정<br/>환경 대응]
-        C4[보안<br/>산업용 IoT<br/>접근 제어]
-    end
-    
-    subgraph "설계 해결 방안"
-        S1[Event-Driven<br/>Architecture]
-        S2[Adapter Pattern<br/>PLC 추상화]
-        S3[WebSocket +<br/>Kafka]
-        S4[JWT + MFA<br/>RBAC]
-    end
-    
-    C1 --> S1
-    C2 --> S2
-    C3 --> S3
-    C4 --> S4
-    
-    style C1 fill:#ffebee,stroke:#d32f2f
-    style C2 fill:#ffebee,stroke:#d32f2f
-    style C3 fill:#ffebee,stroke:#d32f2f
-    style C4 fill:#ffebee,stroke:#d32f2f
-    style S1 fill:#e8f5e9,stroke:#4caf50,stroke-width:2px
-    style S2 fill:#e8f5e9,stroke:#4caf50,stroke-width:2px
-    style S3 fill:#e8f5e9,stroke:#4caf50,stroke-width:2px
-    style S4 fill:#e8f5e9,stroke:#4caf50,stroke-width:2px
+```
+✓ 실제 운영 중인 IoT 시스템 설계 경험
+✓ PLC(산업용 제어기기)와의 Modbus TCP 통신 구현
+✓ 프로덕션 레벨 보안 설계 (JWT 이중 무효화, MFA, RBAC)
+✓ Kafka + DLQ + Semaphore 등 실무 패턴 직접 구현
+✓ 코드 리뷰를 통한 Critical 버그 10종 이상 발견 및 수정
+✓ 10,000줄 규모 TypeScript 코드베이스 아키텍처 유지
 ```
 
-> **Note**: 구현 과정의 기술적 챌린지와 성능 최적화 경험은 [TECHNICAL_CHALLENGES.md](TECHNICAL_CHALLENGES.md)에서 확인하실 수 있습니다.
+**대상 독자**: CTO, 테크 리드, 백엔드/IoT 엔지니어
+
+> "기능을 만든 기록이 아니라, 프로덕션에서 실제 장비를 제어하며 쌓은 설계 판단의 기록입니다."
+
+### 시스템 규모
+
+```
+TypeScript 파일: 28개    코드 라인: ~10,000 lines
+Controllers:    9개     Core Modules:  8개
+MySQL 테이블:   15개     MongoDB Collections: 5개
+API 엔드포인트: 40+개   문서: 25개 Markdown
+```
 
 ---
 
-## 🏗️ 시스템 아키텍처
+## 🏗️ 3가지 핵심 설계 결정
 
-### 전체 시스템 구조
-
-```mermaid
-graph TB
-    subgraph "Client Layer"
-        WEB[Web Dashboard]
-        MOBILE[Mobile App]
-    end
-    
-    subgraph "API Gateway"
-        NGINX[Nginx<br/>- Load Balancing<br/>- SSL/TLS<br/>- Rate Limiting]
-    end
-    
-    subgraph "Backend Cluster"
-        BE1[Backend #1<br/>Bun.js + ElysiaJS]
-        BE2[Backend #2<br/>Bun.js + ElysiaJS]
-        BE3[Backend #N<br/>Bun.js + ElysiaJS]
-    end
-    
-    subgraph "Message Queue"
-        KAFKA[Kafka Cluster<br/>Event Stream]
-    end
-    
-    subgraph "Data Layer"
-        MYSQL[(MySQL<br/>Master-Slave<br/>ACID 보장)]
-        MONGO[(MongoDB<br/>Replica Set<br/>로그 저장)]
-        REDIS[(Redis<br/>Cache<br/>Session)]
-    end
-    
-    subgraph "Device Layer"
-        PLC1[PLC #1<br/>Site A]
-        PLC2[PLC #2<br/>Site B]
-        PLCN[PLC #N<br/>Site N]
-    end
-    
-    WEB --> NGINX
-    MOBILE --> NGINX
-    
-    NGINX --> BE1
-    NGINX --> BE2
-    NGINX --> BE3
-    
-    BE1 <--> KAFKA
-    BE2 <--> KAFKA
-    BE3 <--> KAFKA
-    
-    BE1 --> MYSQL
-    BE1 --> MONGO
-    BE1 --> REDIS
-    
-    BE1 <-.->|Modbus TCP| PLC1
-    BE2 <-.->|Modbus TCP| PLC2
-    BE3 <-.->|Modbus TCP| PLCN
-    
-    style WEB fill:#e1f5ff,stroke:#2196f3
-    style MOBILE fill:#e1f5ff,stroke:#2196f3
-    style NGINX fill:#fff9c4,stroke:#fbc02d,stroke-width:2px
-    style BE1 fill:#fff4e1,stroke:#ff9800
-    style BE2 fill:#fff4e1,stroke:#ff9800
-    style BE3 fill:#fff4e1,stroke:#ff9800
-    style KAFKA fill:#f0e1ff,stroke:#9c27b0,stroke-width:3px
-    style MYSQL fill:#ffe1e1,stroke:#f44336
-    style MONGO fill:#ffe1e1,stroke:#f44336
-    style REDIS fill:#ffe1e1,stroke:#f44336
-    style PLC1 fill:#ffebee,stroke:#d32f2f
-    style PLC2 fill:#ffebee,stroke:#d32f2f
-    style PLCN fill:#ffebee,stroke:#d32f2f
-```
-
-### 계층화된 구조 (Layered Architecture)
-
-```mermaid
-graph TB
-    subgraph "Presentation Layer"
-        API[API Endpoints<br/>REST / WebSocket]
-    end
-    
-    subgraph "Business Logic Layer"
-        CTRL[Controllers<br/>비즈니스 로직]
-        SVC[Services<br/>도메인 로직]
-    end
-    
-    subgraph "Data Access Layer"
-        REPO[Repositories<br/>데이터 접근]
-        ORM[Drizzle ORM<br/>타입 안전]
-    end
-    
-    subgraph "Infrastructure Layer"
-        DB[Databases<br/>MySQL/MongoDB/Redis]
-        MQ[Message Queue<br/>Kafka]
-        CACHE[Caching<br/>Redis]
-    end
-    
-    API --> CTRL
-    CTRL --> SVC
-    SVC --> REPO
-    REPO --> ORM
-    ORM --> DB
-    
-    SVC -.-> MQ
-    SVC -.-> CACHE
-    
-    style API fill:#e1f5ff,stroke:#2196f3,stroke-width:2px
-    style CTRL fill:#fff4e1,stroke:#ff9800
-    style SVC fill:#fff4e1,stroke:#ff9800
-    style REPO fill:#e8f5e9,stroke:#4caf50
-    style ORM fill:#e8f5e9,stroke:#4caf50
-    style DB fill:#ffe1e1,stroke:#f44336
-    style MQ fill:#f0e1ff,stroke:#9c27b0
-    style CACHE fill:#ffe1e1,stroke:#f44336
-```
-
-**설계 이유:**
-- ✅ 각 계층의 독립적 변경 가능
-- ✅ 단위 테스트 용이성
-- ✅ 명확한 책임 분리
-- ✅ 유지보수성 향상
-
-### 마이크로서비스 지향 아키텍처
+### 1️⃣ PLC 어댑터 패턴 — 하드웨어 격리
 
 ```mermaid
 graph LR
-    subgraph "Independent Modules"
-        AUTH[Auth Module<br/>인증/인가]
-        COOLING[Cooling Road<br/>살수 제어]
-        WS[WebSocket<br/>실시간 통신]
-        PLC_MOD[PLC Module<br/>장비 통신]
-        AI[AI Module<br/>자동 판단]
+    subgraph Application["Application Layer"]
+        PC["PLCController"]
     end
-    
-    subgraph "Event Bus"
-        KAFKA_BUS[Kafka Message Bus]
+
+    subgraph Interface["Adapter Interface"]
+        IR["IPLCReader\n- readCoils()\n- readHoldingRegisters()"]
+        IW["IPLCWriter\n- connect()\n- writeCoils()"]
     end
-    
-    AUTH --> KAFKA_BUS
-    COOLING --> KAFKA_BUS
-    WS --> KAFKA_BUS
-    PLC_MOD --> KAFKA_BUS
-    AI --> KAFKA_BUS
-    
-    KAFKA_BUS -.->|Subscribe| AUTH
-    KAFKA_BUS -.->|Subscribe| COOLING
-    KAFKA_BUS -.->|Subscribe| WS
-    KAFKA_BUS -.->|Subscribe| PLC_MOD
-    KAFKA_BUS -.->|Subscribe| AI
-    
-    style AUTH fill:#e1f5ff,stroke:#2196f3
-    style COOLING fill:#fff4e1,stroke:#ff9800
-    style WS fill:#e8f5e9,stroke:#4caf50
-    style PLC_MOD fill:#ffe1e1,stroke:#f44336
-    style AI fill:#f0e1ff,stroke:#9c27b0
-    style KAFKA_BUS fill:#fff9c4,stroke:#fbc02d,stroke-width:3px
+
+    subgraph Impl["구현체"]
+        REAL["ModbusPLCAdapter\n실제 PLC\nModbus TCP"]
+        FAKE["FakePLCAdapter\n개발/테스트용\nRandom Data"]
+    end
+
+    PC --> IR & IW
+    IR & IW --> REAL
+    IR & IW --> FAKE
+
+    ENV["ENV.PLCTYPE=FAKE/REAL"] -.->|"런타임 선택"| PC
+
+    style REAL fill:#27ae60,color:#fff
+    style FAKE fill:#f39c12,color:#fff
+    style PC fill:#2980b9,color:#fff
 ```
 
----
+**설계 근거:**
 
-## 🎨 핵심 설계 패턴
-
-### 1. Adapter Pattern - PLC 통신 추상화
-
-**문제:** 
-- 개발 환경에 실제 PLC 장비가 없어 테스트 불가
-- 다양한 PLC 제조사별 프로토콜 차이
-- 프로덕션/개발 환경 분리 필요
-
-**해결책:**
-
-```mermaid
-graph TB
-    subgraph "Application Layer"
-        BL[Business Logic<br/>장비 제어 로직]
-    end
-    
-    subgraph "Interface Layer"
-        IFACE["IPLCReader / IPLCWriter<br/>(추상화된 계약)"]
-    end
-    
-    subgraph "Development Adapters"
-        FAKE[Fake PLC Adapter<br/>시뮬레이션 데이터<br/>네트워크 불필요]
-    end
-    
-    subgraph "Production Adapters"
-        MODBUS[Modbus Adapter<br/>실제 PLC 통신<br/>Modbus TCP]
-        SIEMENS[Siemens Adapter<br/>S7 Protocol]
-        MITSU[Mitsubishi Adapter<br/>MC Protocol]
-    end
-    
-    subgraph "Factory Pattern"
-        FACTORY[PLC Adapter Factory<br/>환경별 자동 선택]
-    end
-    
-    BL --> IFACE
-    IFACE -.->|implements| FAKE
-    IFACE -.->|implements| MODBUS
-    IFACE -.->|implements| SIEMENS
-    IFACE -.->|implements| MITSU
-    
-    FACTORY -->|NODE_ENV=dev| FAKE
-    FACTORY -->|PLC_TYPE=MODBUS| MODBUS
-    FACTORY -->|PLC_TYPE=SIEMENS| SIEMENS
-    FACTORY -->|PLC_TYPE=MITSU| MITSU
-    
-    style BL fill:#e1f5ff,stroke:#2196f3,stroke-width:2px
-    style IFACE fill:#fff9c4,stroke:#fbc02d,stroke-width:3px
-    style FAKE fill:#f3e5f5,stroke:#9c27b0,stroke-width:2px
-    style MODBUS fill:#e8f5e9,stroke:#4caf50
-    style SIEMENS fill:#e8f5e9,stroke:#4caf50
-    style MITSU fill:#e8f5e9,stroke:#4caf50
-    style FACTORY fill:#fff4e1,stroke:#ff9800,stroke-width:2px
+```
+문제: 개발 환경에 실제 PLC 장비 없음 + 장비 의존성이 코드에 직접 침투하면 테스트 불가
+해결: IPLCReader / IPLCWriter 인터페이스로 하드웨어 완전 격리
+효과: ENV.PLCTYPE=FAKE 하나로 전환, 실제 코드 변경 없이 개발 가능
 ```
 
-**구현 예시:**
-
+**인터페이스 정의:**
 ```typescript
-// 추상화 인터페이스
 interface IPLCReader {
-    readCoils(address: number, count: number): Promise<boolean[]>
-    readHoldingRegisters(address: number, count: number): Promise<number[]>
+    readCoils(modbus: ModbusRTU): Promise<boolean[] | undefined>
+    readHoldingRegisters(modbus: ModbusRTU): Promise<number[] | undefined>
 }
 
 interface IPLCWriter {
-    writeCoils(address: number, data: boolean[]): Promise<void>
-    writeHoldingRegisters(address: number, data: number[]): Promise<void>
-}
-
-// 실제 PLC 구현
-class ModbusPLCAdapter implements IPLCReader, IPLCWriter {
-    async readCoils(address: number, count: number): Promise<boolean[]> {
-        const result = await this.connection.readCoils(address, count)
-        return result.data
-    }
-}
-
-// 테스트용 가짜 PLC
-class FakePLCAdapter implements IPLCReader, IPLCWriter {
-    async readCoils(address: number, count: number): Promise<boolean[]> {
-        return Array.from({ length: count }, () => Math.random() > 0.5)
-    }
-}
-
-// 팩토리 패턴
-class PLCAdapterFactory {
-    static create(config: PLCConfig): IPLCReader & IPLCWriter {
-        if (config.mode === 'PRODUCTION') {
-            return new ModbusPLCAdapter(config)
-        } else {
-            return new FakePLCAdapter()
-        }
-    }
+    connect(modbus: ModbusRTU, address: string, port: number): Promise<boolean>
+    writeCoils(modbus: ModbusRTU, data: boolean[]): Promise<void>
 }
 ```
 
-**결과:**
-- ✅ 환경 변수 하나로 실제/가짜 PLC 전환
-- ✅ PLC 없이도 전체 시스템 개발/테스트 가능
-- ✅ 새로운 PLC 제조사 추가 시 새 어댑터만 구현
-- ✅ 단위 테스트 작성 가능
+> **같은 원칙이 다른 포트폴리오에서도**: Coin Data API의 `IExchangeKlineManager`, 게임 서버의 Domain Event 격리와 동일한 "외부 의존성을 인터페이스 뒤에 숨기는" 패턴입니다.
 
 ---
 
-### 2. Repository Pattern - 데이터 접근 추상화
-
-```mermaid
-graph TB
-    subgraph "Service Layer"
-        SVC[Business Service<br/>비즈니스 로직]
-    end
-    
-    subgraph "Repository Interface"
-        IFACE[IRepository<br/>데이터 접근 계약]
-    end
-    
-    subgraph "Implementations"
-        DRIZZLE[Drizzle Repository<br/>실제 ORM 구현]
-        MOCK[Mock Repository<br/>테스트용 구현]
-    end
-    
-    subgraph "Database"
-        DB[(MySQL<br/>실제 데이터)]
-        MEM[(In-Memory<br/>테스트 데이터)]
-    end
-    
-    SVC --> IFACE
-    IFACE -.->|implements| DRIZZLE
-    IFACE -.->|implements| MOCK
-    
-    DRIZZLE --> DB
-    MOCK --> MEM
-    
-    style SVC fill:#e1f5ff,stroke:#2196f3,stroke-width:2px
-    style IFACE fill:#fff9c4,stroke:#fbc02d,stroke-width:3px
-    style DRIZZLE fill:#e8f5e9,stroke:#4caf50
-    style MOCK fill:#f3e5f5,stroke:#9c27b0
-    style DB fill:#ffe1e1,stroke:#f44336
-    style MEM fill:#ffe1e1,stroke:#f44336
-```
-
-**결과:**
-- ✅ 비즈니스 로직과 데이터 접근 계층 분리
-- ✅ Mock 레포지토리로 단위 테스트 가능
-- ✅ ORM 교체 시 레포지토리만 수정
-
----
-
-### 3. Event-Driven Architecture - Kafka 메시지 큐
-
-```mermaid
-graph LR
-    subgraph "Event Producers"
-        P1[Operation Service<br/>작업 이벤트]
-        P2[PLC Service<br/>장비 이벤트]
-        P3[External API<br/>외부 데이터]
-    end
-    
-    subgraph "Kafka Topics"
-        T1[device.control<br/>장비 제어 명령]
-        T2[device.data.updated<br/>장비 데이터 업데이트]
-        T3[operation.started<br/>작업 시작]
-        T4[operation.stopped<br/>작업 중지]
-        T5[external.data.received<br/>외부 데이터 수신]
-        T6[websocket.broadcast<br/>실시간 브로드캐스트]
-    end
-    
-    subgraph "Event Consumers"
-        C1[History Logger<br/>이력 기록]
-        C2[WebSocket Server<br/>실시간 전송]
-        C3[AI Service<br/>분석 및 판단]
-        C4[Notification<br/>알림 발송]
-    end
-    
-    P1 --> T3
-    P1 --> T4
-    P2 --> T1
-    P2 --> T2
-    P3 --> T5
-    
-    T3 --> C1
-    T3 --> C2
-    T4 --> C1
-    T4 --> C3
-    T2 --> C2
-    T5 --> C3
-    
-    style P1 fill:#e1f5ff,stroke:#2196f3
-    style P2 fill:#fff4e1,stroke:#ff9800
-    style P3 fill:#e8f5e9,stroke:#4caf50
-    style T1 fill:#f0e1ff,stroke:#9c27b0
-    style T2 fill:#f0e1ff,stroke:#9c27b0
-    style T3 fill:#f0e1ff,stroke:#9c27b0
-    style T4 fill:#f0e1ff,stroke:#9c27b0
-    style T5 fill:#f0e1ff,stroke:#9c27b0
-    style T6 fill:#f0e1ff,stroke:#9c27b0
-    style C1 fill:#fff9c4,stroke:#fbc02d
-    style C2 fill:#fff9c4,stroke:#fbc02d
-    style C3 fill:#fff9c4,stroke:#fbc02d
-    style C4 fill:#fff9c4,stroke:#fbc02d
-```
-
-**결과:**
-- ✅ 서비스 간 느슨한 결합
-- ✅ 비동기 처리로 응답 속도 향상
-- ✅ 이벤트 재처리 가능 (장애 복구)
-- ✅ 새로운 구독자 추가 용이
-
----
-
-### 4. Semaphore Pattern - 동시성 제어
+### 2️⃣ Kafka Producer 벌크 전송 + DLQ — 메시지 신뢰성
 
 ```mermaid
 sequenceDiagram
-    participant R as Requests<br/>(10개 사이트)
-    participant S as Semaphore<br/>(permits=3)
-    participant F as FFmpeg Pool
-    participant Q as Wait Queue
-    
-    Note over R,Q: 초기 상태: 10개 요청 동시 도착
-    
-    R->>S: Request 1-3
-    S->>F: Execute #1, #2, #3
-    
-    R->>S: Request 4-10
-    S->>Q: Enqueue #4-10 (대기)
-    
-    Note over F: FFmpeg 실행 중<br/>(최대 3개만)
-    
-    Note over R,Q: 5초 후: Request #1 완료
-    
-    F-->>S: Complete #1
-    S->>Q: Dequeue #4
-    S->>F: Execute #4
-    
-    Note over S: 동시 실행 수 유지<br/>(항상 ≤ 3)
-    
-    Note over R,Q: 순차적으로 처리<br/>CPU/메모리 안정화
+    participant C as Controller (여러 개)
+    participant B as KafkaProducerHelper<br/>Buffer
+    participant K as Kafka Cluster
+    participant DLQ as DLQ (MySQL)
+
+    C->>B: enqueue(topic, msg) ×N
+    Note over B: 0.3초 수집
+    B->>B: flushBuffer()<br/>토픽별 그룹화
+    B->>K: 벌크 전송 (최대 100개)
+
+    alt 전송 실패
+        K-->>B: Error
+        B->>DLQ: PENDING 저장
+        Note over DLQ: errorMessage + errorStack 기록
+    end
+
+    Note over B: try-finally로<br/>플래그 항상 해제
 ```
 
-**결과:**
-- ✅ CPU 사용률 100% → 35%
-- ✅ 메모리 안정화 (OOM 에러 제거)
-- ✅ 응답 시간 예측 가능
+**성능 비교:**
+
+| 지표 | 즉시 전송 (Before) | 벌크 전송 (After) |
+|------|-------------------|------------------|
+| 네트워크 요청 | 메시지당 1회 | 100개당 1~2회 |
+| CPU 사용률 | ~80% | ~30% |
+| 처리량 | 100 msg/sec | 5,000+ msg/sec |
+| 지연 | 0ms | 최대 300ms |
+
+**`try-finally` 패턴 — 플래그 영구 고착 방지:**
+```typescript
+private async flushBuffer() {
+    if (this.process) return
+    this.process = true
+    try {
+        // 배치 처리
+    } finally {
+        this.process = false  // 예외 발생 시에도 반드시 실행
+    }
+}
+```
+
+**DLQ 상태 흐름:**
+
+```mermaid
+stateDiagram-v2
+    [*] --> PENDING : 전송/수신 실패
+    PENDING --> RETRYING : 재시도 시작
+    RETRYING --> RESOLVED : 재처리 성공
+    RETRYING --> FAILED : 한계 초과
+    RESOLVED --> [*]
+    FAILED --> [*] : 수동 개입 필요
+```
 
 ---
 
-## 💡 기술적 의사결정
-
-### 1. Bun.js를 선택한 이유
+### 3️⃣ Polyglot Persistence — 저장소별 역할 분리
 
 ```mermaid
 graph TB
-    subgraph "Node.js"
-        N1[시작 시간: 느림]
-        N2[번들 크기: 큰 편]
-        N3[TS 지원: 별도 빌드]
-        N4[패키지: npm 느림]
+    APP["Application"]
+
+    subgraph Storage["Storage Layer"]
+        MYSQL["MySQL\n관계형 데이터\nACID 트랜잭션"]
+        MONGO["MongoDB\n로그 / 이벤트\n유연한 스키마"]
+        REDIS["Redis\n캐시 / 세션\nTTL 자동 관리"]
+        MINIO["MinIO\n이미지 / 파일\n오브젝트 스토리지"]
     end
-    
-    subgraph "Deno"
-        D1[시작 시간: 보통]
-        D2[번들 크기: 중간]
-        D3[TS 지원: 네이티브]
-        D4[패키지: 제한적]
-    end
-    
-    subgraph "Bun.js ✅"
-        B1[시작 시간: 빠름]
-        B2[번들 크기: 작음]
-        B3[TS 지원: 네이티브]
-        B4[패키지: npm 호환]
-        B5[개발 경험: 우수]
-    end
-    
-    style N1 fill:#ffebee,stroke:#d32f2f
-    style N2 fill:#ffebee,stroke:#d32f2f
-    style N3 fill:#ffebee,stroke:#d32f2f
-    style N4 fill:#ffebee,stroke:#d32f2f
-    style D1 fill:#fff4e1,stroke:#ff9800
-    style D2 fill:#fff4e1,stroke:#ff9800
-    style D3 fill:#fff4e1,stroke:#ff9800
-    style D4 fill:#ffebee,stroke:#d32f2f
-    style B1 fill:#e8f5e9,stroke:#4caf50,stroke-width:2px
-    style B2 fill:#e8f5e9,stroke:#4caf50,stroke-width:2px
-    style B3 fill:#e8f5e9,stroke:#4caf50,stroke-width:2px
-    style B4 fill:#e8f5e9,stroke:#4caf50,stroke-width:2px
-    style B5 fill:#e8f5e9,stroke:#4caf50,stroke-width:2px
+
+    APP -->|"사용자·사이트·이력\n정형 데이터"| MYSQL
+    APP -->|"API 로그·에러·PLC 이벤트\n비정형 대용량"| MONGO
+    APP -->|"JWT 세션·기상 캐시\n분사 중인 사이트 Set"| REDIS
+    APP -->|"CCTV 이미지·유지보수 사진"| MINIO
+
+    style MYSQL fill:#2980b9,color:#fff
+    style MONGO fill:#27ae60,color:#fff
+    style REDIS fill:#e74c3c,color:#fff
+    style MINIO fill:#8e44ad,color:#fff
 ```
 
-**선택 이유:**
-- TypeScript 네이티브 지원으로 빌드 과정 불필요
-- npm 생태계 완전 호환
-- 빠른 개발 사이클 (Hot reload)
-- 경량화된 런타임
+| 저장소 | 역할 | 선택 이유 |
+|--------|------|-----------|
+| MySQL | 사용자, 사이트, 살수 이력, PLC 명령 | ACID, 복잡한 JOIN, 트랜잭션 |
+| MongoDB | API 로그, MFA 로그, PLC 이벤트, 에러 | 유연한 스키마, 대용량 append |
+| Redis | 세션, 기상 캐시, 분사 중인 사이트 Set | 속도, TTL, Set 자료구조 |
+| MinIO | CCTV 이미지, 유지보수 사진 | S3 호환, 오브젝트 스토리지 |
 
 ---
 
-### 2. Polyglot Persistence 전략
+## 🚫 의도적으로 하지 않은 것들
+
+> **"할 수 있다"와 "해야 한다"는 다릅니다.**
+
+| 비선택 | 선택하지 않은 이유 | 대신 선택한 것 |
+|--------|-----------------|--------------|
+| 단일 DB | 용도가 다른 데이터를 한 곳에 → 최적화 불가 | Polyglot Persistence |
+| Offset 페이지네이션 | 대용량에서 성능 폭락 (1M rows → 2.5초) | Cursor 기반 (0.03초) |
+| PLC 직접 호출 코드 | 하드웨어 의존성이 비즈니스 로직에 침투 | Adapter Pattern (Interface) |
+| 블랙리스트만으로 JWT 무효화 | 단일 장애점 | TrashboxJWT + jwtTokenVersion 이중 무효화 |
+| Rate Limiting을 백엔드에서 | 서버 리소스 낭비, 이미 도달 후 차단 | Nginx에서 처리 (도달 전 차단) |
+| MSA로 즉시 분리 | 프로젝트 규모에 과도한 복잡도 | Modular Monolith (경계는 명확히) |
+| 즉시 Kafka 전송 | 메시지당 1회 네트워크 → 고부하 시 병목 | 0.3초 버퍼링 + 벌크 전송 |
+
+---
+
+## 📊 시스템 아키텍처
 
 ```mermaid
 graph TB
-    subgraph "MySQL - ACID 보장"
-        M1[사용자/계정 정보]
-        M2[리소스 정보]
-        M3[작업 이력<br/>정규화된 데이터]
-        M4[트랜잭션 필수]
+    subgraph Client["🖥️ Client Layer"]
+        WEB["Web / Mobile"]
+        ADMIN["Admin Dashboard"]
     end
-    
-    subgraph "MongoDB - 유연한 스키마"
-        MG1[시스템 로그]
-        MG2[에러 로그]
-        MG3[이벤트 히스토리]
-        MG4[비정형 데이터]
+
+    subgraph Gateway["🛡️ Gateway (Nginx)"]
+        RL["Rate Limiting\nSSL/TLS\nSPA Fallback\nCCTV Proxy"]
     end
-    
-    subgraph "Redis - 빠른 읽기"
-        R1[사용자 세션]
-        R2[API 응답 캐시]
-        R3[Rate Limiting]
-        R4[실시간 카운터]
+
+    subgraph App["⚡ Application (Bun.js + ElysiaJS)"]
+        AUTH["Auth Controller\nJWT+MFA+RBAC"]
+        COOLING["CoolingRoad\nController"]
+        WS["WebSocket\nController"]
+        PLC_C["PLC Controller\nModbus TCP"]
+        SCHED["Scheduler\nCron + KMA API"]
+        AI["AI Controller\nSTT + Ollama"]
+        ADMIN_C["Admin Controller"]
+        MAINT["Maintenance\nController"]
     end
-    
-    APP[Application]
-    
-    APP -->|CRUD| M1
-    APP -->|CRUD| M2
-    APP -->|Transaction| M3
-    APP -->|Logging| MG1
-    APP -->|Logging| MG2
-    APP -->|Cache| R1
-    APP -->|Cache| R2
-    
-    style M1 fill:#ffe1e1,stroke:#f44336
-    style M2 fill:#ffe1e1,stroke:#f44336
-    style M3 fill:#ffe1e1,stroke:#f44336
-    style M4 fill:#ffe1e1,stroke:#f44336
-    style MG1 fill:#e8f5e9,stroke:#4caf50
-    style MG2 fill:#e8f5e9,stroke:#4caf50
-    style MG3 fill:#e8f5e9,stroke:#4caf50
-    style MG4 fill:#e8f5e9,stroke:#4caf50
-    style R1 fill:#e1f5ff,stroke:#2196f3
-    style R2 fill:#e1f5ff,stroke:#2196f3
-    style R3 fill:#e1f5ff,stroke:#2196f3
-    style R4 fill:#e1f5ff,stroke:#2196f3
-    style APP fill:#f0e1ff,stroke:#9c27b0,stroke-width:3px
+
+    subgraph Infra["📨 Infrastructure"]
+        KAFKA["Kafka\nBulk + DLQ"]
+        ADAPTER["PLC Adapter\nReal / Fake"]
+    end
+
+    subgraph Store["💾 Storage"]
+        MY["MySQL\n정형 데이터"]
+        MG["MongoDB\n로그"]
+        RD["Redis\n캐시/세션"]
+        MN["MinIO\n이미지"]
+    end
+
+    WEB & ADMIN --> RL --> AUTH & COOLING & WS & ADMIN_C & MAINT
+    COOLING & SCHED --> KAFKA --> PLC_C --> ADAPTER
+    AI --> KAFKA
+    WS --> KAFKA
+    App --> MY & MG & RD & MN
+
+    style KAFKA fill:#f39c12,color:#fff
+    style ADAPTER fill:#27ae60,color:#fff
+    style RL fill:#8e44ad,color:#fff
+```
+
+### 전체 데이터 흐름
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant N as Nginx
+    participant B as Backend
+    participant K as Kafka
+    participant P as PLC (Modbus TCP)
+    participant W as WebSocket
+    participant DB as MySQL/Mongo/Redis
+
+    C->>N: POST /api/coolingroad/spray
+    N->>N: Rate Limit 체크 (20r/m)
+    N->>B: 통과
+    B->>B: JWT + RBAC 검증
+    B->>DB: PLC 멱등성 체크 (Redis + MySQL)
+    B->>K: START_SPRAY 이벤트 발행
+    B->>C: 202 Accepted
+    K->>P: Modbus TCP 분사 명령
+    P-->>K: 완료
+    K->>W: 분사 상태 WebSocket 전송
+    W->>C: 실시간 알림
 ```
 
 ---
 
 ## 🔐 보안 설계
 
-### 1. JWT + MFA 인증
+### JWT 이중 무효화
+
+```mermaid
+flowchart LR
+    LOGIN["로그인"] -->|"jwt_token_version 증가"| MYSQL["MySQL\njwt_token_version"]
+    LOGIN -->|"새 JWT 발급"| CLIENT["Client JWT"]
+    
+    REQ["API 요청"] --> V1{"TrashboxJWT\n블랙리스트 확인"}
+    V1 -->|"블랙리스트 있음"| REJECT1["🔴 거부"]
+    V1 -->|"없음"| V2{"DB\njwt_token_version 비교"}
+    V2 -->|"불일치"| REJECT2["🔴 거부"]
+    V2 -->|"일치"| ALLOW["✅ 허용"]
+
+    LOGOUT["로그아웃"] -->|"TrashboxJWT에 추가"| MONGO["MongoDB\nTrashboxJWT"]
+
+    style REJECT1 fill:#e74c3c,color:#fff
+    style REJECT2 fill:#e74c3c,color:#fff
+    style ALLOW fill:#27ae60,color:#fff
+```
+
+**왜 이중 무효화인가:**
+- `TrashboxJWT` 단독: 블랙리스트 미기록 시 만료 전까지 유효
+- `jwtTokenVersion` 단독: 과거 세션 즉시 만료 불가
+- **이중 적용**: 로그아웃 즉시 무효화 + 타기기 세션 자동 만료
+
+### RBAC 구조
+
+```mermaid
+graph TD
+    ORGANIZE["ORGANIZE\n조직 관리자"] -->|"포함"| DEV
+    DEV["DEVELOPER\n개발자"] -->|"포함"| MAINT
+    MAINT["MAINTENANCE\n유지보수"] -->|"포함"| USER
+    USER["USER\n일반 사용자"]
+
+    ORGANIZE -.->|"사용자 관리\n조직 설정"| ORG_API["Admin API"]
+    MAINT -.->|"전체 사이트 조회\n유지보수 이력"| MAINT_API["Maintenance API"]
+    USER -.->|"살수 제어\n이력 조회"| USER_API["CoolingRoad API"]
+```
+
+### MFA (TOTP)
+
+```
+✓ RFC 6238 기반 TOTP (30초 유효)
+✓ 타이밍 공격 방지 (상수 시간 비교)
+✓ 재시도 제한 (Redis 기반)
+✓ 재사용 방지 (이미 사용된 OTP 블랙리스트)
+```
+
+### Nginx Rate Limiting
+
+| Zone | Rate | 적용 엔드포인트 |
+|------|------|--------------|
+| auth_limit | 10r/m | /signin, /signup |
+| coolingroad_write_limit | 20r/m | POST /spray |
+| coolingroad_read_limit | 60r/m | GET 요청 |
+| mfa_limit | 15r/m | /mfa/* |
+| upload_limit | 10r/m | 파일 업로드 |
+
+---
+
+## 🛡️ 운영 안정성
+
+### PLC 명령 멱등성
 
 ```mermaid
 sequenceDiagram
-    participant C as Client
-    participant A as Auth Service
-    participant MFA as MFA Service
-    participant DB as Database
-    
-    Note over C,DB: 1단계: 기본 인증
-    
-    C->>A: Login (email, password)
-    A->>DB: Verify credentials
-    DB-->>A: User data
-    
-    Note over A: Password 검증 성공
-    
-    A->>C: MFA Challenge
-    
-    Note over C,MFA: 2단계: MFA 인증
-    
-    C->>MFA: TOTP Token
-    MFA->>MFA: Verify TOTP<br/>(±30초 허용)
-    
-    alt MFA Success
-        MFA-->>A: Verified
-        A->>A: Generate JWT<br/>(24시간 유효)
-        A-->>C: Access Token + Refresh Token
-    else MFA Failed
-        MFA-->>C: 401 Unauthorized
+    participant API
+    participant Redis
+    participant MySQL
+    participant PLC
+
+    API->>Redis: 분사 중인 사이트 Set 확인
+    alt Redis에 존재 (중복)
+        Redis-->>API: 중복 감지
+        API->>API: MongoDB 로그 기록
+        API-->>API: 거부
+    else Redis에 없음
+        Redis-->>API: 없음
+        API->>MySQL: plc_command 유효 명령 조회
+        alt 유효한 명령 있음
+            MySQL-->>API: 존재
+            API-->>API: 거부 (중복)
+        else 명령 없음
+            MySQL-->>API: 없음
+            API->>MySQL: plc_command 생성
+            API->>Redis: 분사 중 등록
+            API->>PLC: 분사 시작
+        end
     end
 ```
 
----
+**효과**: Redis + MySQL 이중 멱등성 체크 → 네트워크 재시도로 인한 중복 분사 100% 차단
 
-### 2. Rate Limiting
+### PLC 고장코드 — 비트 플래그
+
+11가지 고장 유형을 정수 1개로 표현:
+
+```typescript
+enum PLCMalfunctionCode {
+    NONE = 0,
+    PUMP1 = 1 << 0,                           // 1
+    PUMP2 = 1 << 1,                           // 2
+    TEMPHUMID_SENSOR_COMMUNICATION = 1 << 2,  // 4
+    DUST_SENSOR_COMMUNICATION = 1 << 3,       // 8
+    ROADTEMP_SENSOR_COMMUNICATION = 1 << 4,   // 16
+    // ... 총 11가지
+}
+
+// fault_code = 5 → PUMP1(1) + TEMPHUMID_SENSOR_COMMUNICATION(4)
+// 비트 연산으로 어떤 고장인지 즉시 판별
+if (site.fault_code & PLCMalfunctionCode.PUMP1) { /* 펌프1 고장 */ }
+```
+
+### Semaphore — FFmpeg 동시성 제어
+
+```typescript
+// CCTV 이미지 캡처는 FFmpeg 프로세스를 생성
+// 동시에 너무 많이 실행되면 메모리/CPU 폭증
+private imageSemaphore = new Semaphore(3)  // 최대 3개 동시 실행
+
+await this.imageSemaphore.acquire(async () => {
+    return await captureFrameWebP(rtspUrl)
+})
+```
+
+### Graceful Shutdown
 
 ```mermaid
-graph TB
-    REQUEST[Client Request]
+flowchart LR
+    SIGNAL["SIGTERM/SIGINT"] --> STOP["서버 중지\n(5초 타임아웃)"]
+    STOP --> KAFKA_FLUSH["Kafka 버퍼\n완전히 비우기"]
+    KAFKA_FLUSH --> DB["DB 연결 종료\nMySQL·Mongo·Redis\n(각 5초)"]
+    DB --> EXIT["process.exit(0)"]
     
-    subgraph "Rate Limiter"
-        EXTRACT[Extract IP/User ID]
-        CHECK[Redis Counter<br/>Check]
-        DECISION{Allowed?}
-    end
-    
-    subgraph "Redis"
-        COUNTER[Request Counter<br/>Key: ratelimit:IP:timestamp<br/>TTL: 1분]
-    end
-    
-    subgraph "Response"
-        ALLOW[200 OK<br/>X-RateLimit-Remaining: N]
-        DENY[429 Too Many Requests<br/>X-RateLimit-Reset: timestamp]
-    end
-    
-    REQUEST --> EXTRACT
-    EXTRACT --> CHECK
-    CHECK <--> COUNTER
-    CHECK --> DECISION
-    
-    DECISION -->|≤100 requests| ALLOW
-    DECISION -->|>100 requests| DENY
-    
-    COUNTER -.->|Increment| COUNTER
-    
-    style REQUEST fill:#e1f5ff,stroke:#2196f3
-    style EXTRACT fill:#fff4e1,stroke:#ff9800
-    style CHECK fill:#fff4e1,stroke:#ff9800
-    style DECISION fill:#fff9c4,stroke:#fbc02d,stroke-width:2px
-    style COUNTER fill:#ffe1e1,stroke:#f44336
-    style ALLOW fill:#e8f5e9,stroke:#4caf50,stroke-width:2px
-    style DENY fill:#ffebee,stroke:#d32f2f,stroke-width:2px
+    TIMEOUT["30초 전체 타임아웃"] -.->|"초과 시"| FORCE["process.exit(1)"]
+
+    style SIGNAL fill:#e74c3c,color:#fff
+    style EXIT fill:#27ae60,color:#fff
 ```
 
----
-
-### 3. RBAC (Role-Based Access Control)
+### 자동 분사 시스템
 
 ```mermaid
-graph TB
-    subgraph "User Roles"
-        USER[USER<br/>일반 사용자]
-        MAINT[MAINTENANCE<br/>유지보수 담당자]
-        DEV[DEVELOPER<br/>개발자]
-        ORG[ORGANIZE<br/>조직 관리자]
-    end
-    
-    subgraph "Permissions"
-        P1[site:read<br/>사이트 조회]
-        P2[site:write<br/>사이트 수정]
-        P3[plc:control<br/>PLC 제어]
-        P4[users:manage<br/>사용자 관리]
-        P5[logs:view<br/>로그 조회]
-    end
-    
-    USER --> P1
-    
-    MAINT --> P1
-    MAINT --> P2
-    MAINT --> P3
-    MAINT --> P5
-    
-    DEV --> P1
-    DEV --> P2
-    DEV --> P3
-    DEV --> P5
-    
-    ORG --> P1
-    ORG --> P2
-    ORG --> P3
-    ORG --> P4
-    ORG --> P5
-    
-    style USER fill:#e1f5ff,stroke:#2196f3
-    style MAINT fill:#fff4e1,stroke:#ff9800
-    style DEV fill:#e8f5e9,stroke:#4caf50
-    style ORG fill:#f0e1ff,stroke:#9c27b0,stroke-width:2px
-    style P1 fill:#fff9c4,stroke:#fbc02d
-    style P2 fill:#fff9c4,stroke:#fbc02d
-    style P3 fill:#ffe1e1,stroke:#f44336
-    style P4 fill:#ffe1e1,stroke:#f44336
-    style P5 fill:#fff9c4,stroke:#fbc02d
+flowchart TD
+    CRON["Cron\n매시간 15분(쿨링)/20분(클린)"] --> SITES["자동 설정 사이트 조회\nuseAuto=true"]
+    SITES --> LOOP["각 사이트별"]
+    LOOP --> DATA["최신 센서 + 기상 데이터"]
+    DATA --> EVAL["evaluateActionConditions()"]
+    EVAL -->|"조건 만족"| KAFKA["Kafka → PLC 분사"]
+    EVAL -->|"조건 불만족"| SKIP["스킵"]
 ```
 
 ---
 
-## 📚 관련 포트폴리오
+## 🔍 코드 리뷰 이력
 
-이 설계 원칙은 다른 도메인에도 적용 가능합니다:
+> **"코드 리뷰를 통해 발견하고 수정한 버그들이 이 시스템의 신뢰성을 만들었습니다."**
 
-### 🎨 [Main Game Architecture](https://github.com/1985jwlee/portpolio_main)
+### Critical 버그 (🔴)
 
-**동일한 원칙의 게임 도메인 적용**
+| 버전 | 버그 | 영향 | 수정 |
+|------|------|------|------|
+| v3.6.7 | `signInOrganizer` SQL 평문 비밀번호 비교 | 🔴 인증 우회 가능 | bcrypt 전환 |
+| v3.6.0 | 날씨 캐시 Redis hit 시 서버 크래시 | 🔴 서비스 중단 | Map 직렬화 수정 |
+| v3.6.0 | PLC 멱등성 쿼리 방향 반전 (`gte`/`lte`) | 🔴 중복 분사 발생 | 방향 수정 |
+| v3.5.0 | AuthGuard `checkRole()` async 버그 | 🔴 RBAC 완전 우회 | async 제거 |
+| v3.5.4 | 비밀번호 재설정 강도 검증 누락 | 🔴 약한 비밀번호 허용 | 검증 추가 |
+| v3.3.16 | JWT 단일 무효화 → 이중 무효화 미적용 | 🔴 로그아웃 후 재사용 | TrashboxJWT 추가 |
 
-| 원칙 | IoT Backend | Game Server |
-|------|------------|-------------|
-| **외부 격리** | PLC 장애 시 서비스 유지 | DB 장애 시 게임 진행 |
-| **이벤트 기반** | Kafka Event Stream | Kafka Event Stream |
-| **계약 안정성** | API 스키마 불변 | 운영 API 불변 |
-| **비동기 처리** | WebSocket + Kafka | Command → Event |
+### High 버그 (🟠)
 
-### 📊 [Coin Data API](https://github.com/1985jwlee/portpolio_coindataapi)
+| 버전 | 버그 | 수정 |
+|------|------|------|
+| v3.6.0 | `stopSpray` 조건 `&&` → `||` | 분사 중단 조건 오류 수정 |
+| v3.6.0 | `spraying_sites` 영구 잠금 | 단수 전환으로 완전 제거 |
+| v3.6.0 | siteid 소유권 미검증 → 타기관 데이터 열람 | 소유권 검증 추가 |
+| v3.6.0 | MinIO 실패 무시 + DB 롤백 없음 | 트랜잭션 처리 추가 |
 
-**외부 API 격리 패턴**
+### 리뷰를 통한 구조적 개선
 
-| 원칙 | IoT Backend | Coin API |
-|------|------------|----------|
-| **외부 격리** | PLC 프로토콜 추상화 | 거래소 API 추상화 |
-| **정규화** | Modbus → Internal Schema | External API → Internal Schema |
-| **캐싱** | Redis Multi-tier | In-Memory Cache |
-
-> **핵심 메시지**: "설계 원칙은 도메인을 넘어 일반화 가능합니다"
+| 버전 | 개선 내용 |
+|------|----------|
+| v3.3.18 | AuthGuard 중복 ~70줄 → `createGuard()` 통합 |
+| v3.3.8 | Kafka 즉시 전송 → 0.3초 벌크 (처리량 50배) |
+| v3.3.7 | Offset 페이징 → Cursor 페이징 (83배 성능) |
+| v3.5.3 | Graceful Shutdown 종료 순서 역전 수정 |
+| v3.5.2 | FFmpeg→PNG→Sharp(2단계) → FFmpeg→WebP(1단계, 메모리 40% 감소) |
 
 ---
 
-## 📧 Contact
+## 🛠️ 기술 스택
+
+| 영역 | 기술 |
+|------|------|
+| Runtime | Bun.js 1.0+ |
+| Framework | ElysiaJS 1.0+ |
+| Language | TypeScript 5.0+ |
+| ORM | Drizzle ORM |
+| DI | tsyringe (Singleton Container) |
+| Message Queue | Apache Kafka (KafkaJS) |
+| PLC 통신 | Modbus TCP (modbus-serial) |
+| 이미지 처리 | FFmpeg (WebP 직접 인코딩) |
+| 저장소 | MySQL · MongoDB · Redis · MinIO |
+| 인증 | JWT HS512 + MFA TOTP |
+| 인프라 | Docker Compose · Nginx · Let's Encrypt |
+| ID 생성 | Snowflake ID (분산 환경 대비) |
+
+---
+
+## 📚 상세 문서
+
+| 문서 | 내용 | 대상 |
+|------|------|------|
+| [설계 결정 과정](docs/design-decisions-portfolio.md) | 왜 이렇게 설계했는가 | 테크 리드, CTO |
+| [아키텍처](docs/ARCHITECTURE.md) | 전체 시스템 구조 | 백엔드 엔지니어 |
+| [배포 가이드](docs/DEPLOYMENT.md) | Docker + Nginx + SSL | DevOps |
+| [API 계약](docs/API_CONTRACT.md) | 전체 엔드포인트 | 프론트엔드 개발자 |
+| [WebSocket 가이드](docs/WEBSOCKET_GUIDE.md) | WebSocket 통합 | 프론트엔드 개발자 |
+| [CHANGELOG](CHANGELOG.md) | 버전별 변경 이력 | 팀 전체 |
+
+---
+
+## 💬 한 줄 요약
+
+> 이 포트폴리오는 실제 도로 위 장비를 제어하는 프로덕션 IoT 시스템을 설계·운영하면서,  
+> **"PLC 어댑터 격리, Kafka 벌크 DLQ, JWT 이중 무효화, 코드 리뷰 기반 Critical 버그 10종 수정"**을  
+> 실무에서 직접 판단하고 구현한 기록입니다.
+
+---
 
 **GitHub**: [@1985jwlee](https://github.com/1985jwlee)  
-**Email**: leejae.w.jl@icloud.com
-
----
-
-## 📝 License
-
-이 문서는 설계 포트폴리오로, 학습 및 평가 목적으로 공개되었습니다.
-
----
-
-**Last Updated**: 2025-01-30
-
-**Note**: 이 프로젝트는 실무 프로덕션 시스템의 아키텍처와 설계 판단력을 증명하기 위한 자료입니다.
+**Last Updated**: 2026-03-04 | **Version**: 3.8.0
