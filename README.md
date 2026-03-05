@@ -6,22 +6,22 @@
 [![Status](https://img.shields.io/badge/Status-Production%20Ready-green)]()
 [![Framework](https://img.shields.io/badge/Framework-Bun.js%20%2B%20ElysiaJS-orange)]()
 
------
+---
 
 ## 📋 목차
 
 1. [Portfolio Summary](#-portfolio-summary)
-1. [3가지 핵심 설계 결정](#-3가지-핵심-설계-결정)
-1. [의도적으로 하지 않은 것들](#-의도적으로-하지-않은-것들)
-1. [시스템 아키텍처](#-시스템-아키텍처)
-1. [보안 설계](#-보안-설계)
-1. [운영 안정성](#-운영-안정성)
-1. [코드 리뷰 이력](#-코드-리뷰-이력)
-1. [기술 스택](#️-기술-스택)
-1. [상세 문서](#-상세-문서)
-1. [한 줄 요약](#-한-줄-요약)
+2. [3가지 핵심 설계 결정](#-3가지-핵심-설계-결정)
+3. [의도적으로 하지 않은 것들](#-의도적으로-하지-않은-것들)
+4. [시스템 아키텍처](#-시스템-아키텍처)
+5. [보안 설계](#-보안-설계)
+6. [운영 안정성](#-운영-안정성)
+7. [코드 리뷰 이력](#-코드-리뷰-이력)
+8. [기술 스택](#️-기술-스택)
+9. [상세 문서](#-상세-문서)
+10. [한 줄 요약](#-한-줄-요약)
 
------
+---
 
 ## 📌 Portfolio Summary
 
@@ -36,7 +36,7 @@
 ✓ ~10,000줄 규모 TypeScript 코드베이스 아키텍처 유지
 ```
 
-> “기능을 만든 기록이 아니라, 프로덕션에서 실제 장비를 제어하며 쌓은 설계 판단의 기록입니다.”
+> "기능을 만든 기록이 아니라, 프로덕션에서 실제 장비를 제어하며 쌓은 설계 판단의 기록입니다."
 
 ### 시스템 규모
 
@@ -47,7 +47,7 @@ MySQL 테이블:     15개     MongoDB Collections: 5개
 API 엔드포인트: 40+개     문서: 25개 Markdown
 ```
 
------
+---
 
 ## 🏗️ 3가지 핵심 설계 결정
 
@@ -76,14 +76,13 @@ graph LR
 ```
 
 **설계 근거:**
-
 - 개발 환경에 실제 PLC 장비 없음 → 하드웨어 의존성을 인터페이스 뒤에 격리
 - `ENV.PLCTYPE=FAKE` 하나로 전환, 코드 변경 없이 개발·테스트 가능
 - PLC 통신 프로토콜 변경 시 Adapter만 교체
 
-> **같은 원칙, 다른 도메인**: Coin Data API의 `IExchangeKlineManager`, 게임 서버의 Domain Event 격리와 동일한 “외부 의존성을 인터페이스 뒤에 숨기는” 패턴
+> **같은 원칙, 다른 도메인**: Coin Data API의 `IExchangeKlineManager`, 게임 서버의 Domain Event 격리와 동일한 "외부 의존성을 인터페이스 뒤에 숨기는" 패턴
 
------
+---
 
 ### 2️⃣ Kafka 벌크 전송 + DLQ — 처리량과 신뢰성
 
@@ -105,15 +104,14 @@ sequenceDiagram
     Note over B: try-finally로 플래그 항상 해제
 ```
 
-|지표     |즉시 전송    |벌크 전송       |
-|-------|---------|------------|
-|네트워크 요청|메시지당 1회  |100개당 1~2회  |
-|CPU 사용률|~80%     |~30%        |
-|처리량    |100 msg/s|5,000+ msg/s|
-|지연     |0ms      |최대 300ms    |
+| 지표 | 즉시 전송 | 벌크 전송 |
+|------|---------|---------|
+| 네트워크 요청 | 메시지당 1회 | 100개당 1~2회 |
+| CPU 사용률 | ~80% | ~30% |
+| 처리량 | 100 msg/s | 5,000+ msg/s |
+| 지연 | 0ms | 최대 300ms |
 
 **DLQ 상태 흐름:**
-
 ```mermaid
 stateDiagram-v2
     [*] --> PENDING : 전송/수신 실패
@@ -124,7 +122,7 @@ stateDiagram-v2
     FAILED --> [*] : 수동 개입 필요
 ```
 
------
+---
 
 ### 3️⃣ Polyglot Persistence — 저장소별 역할 분리
 
@@ -147,28 +145,28 @@ graph TB
     style MINIO fill:#8e44ad,color:#fff
 ```
 
-|저장소    |역할                         |선택 이유               |
-|-------|---------------------------|--------------------|
-|MySQL  |사용자, 사이트, 살수 이력, PLC 명령    |ACID, 복잡한 JOIN, 트랜잭션|
-|MongoDB|API 로그, MFA 로그, PLC 이벤트, 에러|유연한 스키마, 대용량 append |
-|Redis  |세션, 기상 캐시, 분사 중인 사이트 Set   |속도, TTL, Set 자료구조   |
-|MinIO  |CCTV 이미지, 유지보수 사진          |S3 호환, 오브젝트 스토리지    |
+| 저장소 | 역할 | 선택 이유 |
+|--------|------|-----------|
+| MySQL | 사용자, 사이트, 살수 이력, PLC 명령 | ACID, 복잡한 JOIN, 트랜잭션 |
+| MongoDB | API 로그, MFA 로그, PLC 이벤트, 에러 | 유연한 스키마, 대용량 append |
+| Redis | 세션, 기상 캐시, 분사 중인 사이트 Set | 속도, TTL, Set 자료구조 |
+| MinIO | CCTV 이미지, 유지보수 사진 | S3 호환, 오브젝트 스토리지 |
 
------
+---
 
 ## 🚫 의도적으로 하지 않은 것들
 
-|비선택              |선택하지 않은 이유                  |대신 선택한 것                        |
-|-----------------|----------------------------|--------------------------------|
-|단일 DB            |로그·캐시·정형 데이터를 한 곳에 → 최적화 불가 |Polyglot Persistence            |
-|Offset 페이지네이션    |대용량에서 성능 폭락 (1M rows → 2.5초)|Cursor 기반 (0.03초, 83배)          |
-|PLC 직접 호출 코드     |하드웨어 의존성이 비즈니스 로직에 침투       |Adapter Pattern                 |
-|단일 JWT 무효화       |PLC 제어에서 로그아웃 후 재사용 = 보안 위협 |TrashboxJWT + jwtTokenVersion 이중|
-|백엔드 Rate Limiting|서버 도달 후 차단 → 리소스 낭비         |Nginx에서 도달 전 차단                 |
-|즉시 Kafka 전송      |고부하 시 네트워크 폭증               |0.3초 버퍼링 + 벌크 전송                |
-|MSA 즉시 분리        |규모 대비 운영 복잡도 과다             |Modular Monolith (경계는 명확히)      |
+| 비선택 | 선택하지 않은 이유 | 대신 선택한 것 |
+|--------|-----------------|--------------|
+| 단일 DB | 로그·캐시·정형 데이터를 한 곳에 → 최적화 불가 | Polyglot Persistence |
+| Offset 페이지네이션 | 대용량에서 성능 폭락 (1M rows → 2.5초) | Cursor 기반 (0.03초, 83배) |
+| PLC 직접 호출 코드 | 하드웨어 의존성이 비즈니스 로직에 침투 | Adapter Pattern |
+| 단일 JWT 무효화 | PLC 제어에서 로그아웃 후 재사용 = 보안 위협 | TrashboxJWT + jwtTokenVersion 이중 |
+| 백엔드 Rate Limiting | 서버 도달 후 차단 → 리소스 낭비 | Nginx에서 도달 전 차단 |
+| 즉시 Kafka 전송 | 고부하 시 네트워크 폭증 | 0.3초 버퍼링 + 벌크 전송 |
+| MSA 즉시 분리 | 규모 대비 운영 복잡도 과다 | Modular Monolith (경계는 명확히) |
 
------
+---
 
 ## 📊 시스템 아키텍처
 
@@ -207,7 +205,7 @@ graph TB
     style RL fill:#8e44ad,color:#fff
 ```
 
------
+---
 
 ## 🔐 보안 설계
 
@@ -240,15 +238,15 @@ graph TD
 
 ### Nginx Rate Limiting
 
-|Zone                   |Rate |적용 대상   |
-|-----------------------|-----|--------|
-|auth_limit             |10r/m|로그인·회원가입|
-|coolingroad_write_limit|20r/m|분사 제어   |
-|coolingroad_read_limit |60r/m|데이터 조회  |
-|mfa_limit              |15r/m|MFA 인증  |
-|upload_limit           |10r/m|파일 업로드  |
+| Zone | Rate | 적용 대상 |
+|------|------|---------|
+| auth_limit | 10r/m | 로그인·회원가입 |
+| coolingroad_write_limit | 20r/m | 분사 제어 |
+| coolingroad_read_limit | 60r/m | 데이터 조회 |
+| mfa_limit | 15r/m | MFA 인증 |
+| upload_limit | 10r/m | 파일 업로드 |
 
------
+---
 
 ## 🛡️ 운영 안정성
 
@@ -303,71 +301,71 @@ flowchart LR
     style EXIT fill:#27ae60,color:#fff
 ```
 
------
+---
 
 ## 🔍 코드 리뷰 이력
 
 ### Critical 버그 (🔴)
 
-|버전     |버그                                           |수정        |
-|-------|---------------------------------------------|----------|
-|v3.5.0 |AuthGuard `checkRole()` async 버그 → RBAC 완전 우회|async 제거  |
-|v3.6.7 |`signInOrganizer` SQL 평문 비밀번호 비교             |bcrypt 전환 |
-|v3.6.0 |날씨 캐시 Redis hit 시 서버 크래시                     |Map 직렬화 수정|
-|v3.6.0 |PLC 멱등성 쿼리 `gte`/`lte` 방향 반전 → 중복 분사         |방향 수정     |
-|v3.5.4 |비밀번호 재설정 강도 검증 누락                            |검증 추가     |
-|v3.3.16|JWT 단일 무효화 → 로그아웃 후 재사용 가능                   |이중 무효화 구현 |
+| 버전 | 버그 | 수정 |
+|------|------|------|
+| v3.5.0 | AuthGuard `checkRole()` async 버그 → RBAC 완전 우회 | async 제거 |
+| v3.6.7 | `signInOrganizer` SQL 평문 비밀번호 비교 | bcrypt 전환 |
+| v3.6.0 | 날씨 캐시 Redis hit 시 서버 크래시 | Map 직렬화 수정 |
+| v3.6.0 | PLC 멱등성 쿼리 `gte`/`lte` 방향 반전 → 중복 분사 | 방향 수정 |
+| v3.5.4 | 비밀번호 재설정 강도 검증 누락 | 검증 추가 |
+| v3.3.16 | JWT 단일 무효화 → 로그아웃 후 재사용 가능 | 이중 무효화 구현 |
 
 ### 구조적 개선
 
-|버전     |개선                                    |
-|-------|--------------------------------------|
-|v3.3.18|AuthGuard 중복 ~70줄 → `createGuard()` 통합|
-|v3.3.8 |Kafka 즉시 전송 → 0.3초 벌크 (처리량 50배)       |
-|v3.3.7 |Offset → Cursor 페이징 (83배 성능)          |
-|v3.5.2 |FFmpeg 2단계 → 1단계 WebP 인코딩 (메모리 40%↓)  |
-|v3.5.3 |Graceful Shutdown 종료 순서 역전 수정         |
+| 버전 | 개선 |
+|------|------|
+| v3.3.18 | AuthGuard 중복 ~70줄 → `createGuard()` 통합 |
+| v3.3.8 | Kafka 즉시 전송 → 0.3초 벌크 (처리량 50배) |
+| v3.3.7 | Offset → Cursor 페이징 (83배 성능) |
+| v3.5.2 | FFmpeg 2단계 → 1단계 WebP 인코딩 (메모리 40%↓) |
+| v3.5.3 | Graceful Shutdown 종료 순서 역전 수정 |
 
------
+---
 
 ## 🛠️ 기술 스택
 
-|영역           |기술                                    |
-|-------------|--------------------------------------|
-|Runtime      |Bun.js 1.0+                           |
-|Framework    |ElysiaJS 1.0+                         |
-|Language     |TypeScript 5.0+                       |
-|ORM / DI     |Drizzle ORM + tsyringe                |
-|Message Queue|Apache Kafka (KafkaJS)                |
-|PLC 통신       |Modbus TCP (modbus-serial)            |
-|이미지 처리       |FFmpeg (WebP 직접 인코딩)                  |
-|저장소          |MySQL · MongoDB · Redis · MinIO       |
-|인증           |JWT HS512 + MFA TOTP                  |
-|인프라          |Docker Compose · Nginx · Let’s Encrypt|
-|ID 생성        |Snowflake ID                          |
+| 영역 | 기술 |
+|------|------|
+| Runtime | Bun.js 1.0+ |
+| Framework | ElysiaJS 1.0+ |
+| Language | TypeScript 5.0+ |
+| ORM / DI | Drizzle ORM + tsyringe |
+| Message Queue | Apache Kafka (KafkaJS) |
+| PLC 통신 | Modbus TCP (modbus-serial) |
+| 이미지 처리 | FFmpeg (WebP 직접 인코딩) |
+| 저장소 | MySQL · MongoDB · Redis · MinIO |
+| 인증 | JWT HS512 + MFA TOTP |
+| 인프라 | Docker Compose · Nginx · Let's Encrypt |
+| ID 생성 | Snowflake ID |
 
------
+---
 
 ## 📚 상세 문서
 
-|문서                                              |내용                  |대상        |
-|------------------------------------------------|--------------------|----------|
-|[설계 결정 과정](docs/design-decisions-portfolio.md) ⭐|왜 이렇게 설계했는가         |테크 리드, CTO|
-|[기술 챌린지](docs/TECHNICAL_CHALLENGES.md) ⭐        |문제 → 원인 → 해결 과정     |테크 리드, CTO|
-|[아키텍처](docs/ARCHITECTURE.md)                    |전체 시스템 구조           |백엔드 엔지니어  |
-|[배포 가이드](docs/DEPLOYMENT.md)                    |Docker + Nginx + SSL|DevOps    |
-|[API 계약](docs/API_CONTRACT.md)                  |API 그룹 구성 + 에러 코드 체계|프론트엔드 개발자 |
-|[WebSocket 가이드](docs/WEBSOCKET_GUIDE.md)        |WebSocket 통합        |프론트엔드 개발자 |
-|[코드 개선 이력](CHANGELOG.md)                        |리팩터링 흐름 (테마별)       |백엔드 엔지니어  |
+| 문서 | 내용 | 대상 |
+|------|------|------|
+| [설계 결정 과정](docs/design-decisions-portfolio.md) ⭐ | 왜 이렇게 설계했는가 | 테크 리드, CTO |
+| [기술 챌린지](docs/TECHNICAL_CHALLENGES.md) ⭐ | 문제 → 원인 → 해결 과정 | 테크 리드, CTO |
+| [아키텍처](docs/ARCHITECTURE.md) | 전체 시스템 구조 | 백엔드 엔지니어 |
+| [배포 가이드](docs/DEPLOYMENT.md) | Docker + Nginx + SSL | DevOps |
+| [API 계약](docs/API_CONTRACT.md) | API 그룹 구성 + 에러 코드 체계 | 프론트엔드 개발자 |
+| [WebSocket 가이드](docs/WEBSOCKET_GUIDE.md) | WebSocket 통합 | 프론트엔드 개발자 |
+| [코드 개선 이력](CHANGELOG.md) | 리팩터링 흐름 (테마별) | 백엔드 엔지니어 |
 
------
+---
 
 ## 💬 한 줄 요약
 
 > 이 포트폴리오는 실제 도로 위 장비를 제어하는 프로덕션 IoT 시스템을 설계·운영하면서,  
-> **“PLC 어댑터 격리, Kafka 벌크 DLQ, JWT 이중 무효화, 코드 리뷰 기반 Critical 버그 10종 수정”** 을  
+> **"PLC 어댑터 격리, Kafka 벌크 DLQ, JWT 이중 무효화, 코드 리뷰 기반 Critical 버그 10종 수정"** 을  
 > 실무에서 직접 판단하고 구현한 기록입니다.
 
------
+---
 
 **Version**: 3.8.0 | **Last Updated**: 2026-03-04
